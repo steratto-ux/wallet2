@@ -39,7 +39,7 @@ data class HomeState(
 )
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
-    private val app = application as FinanzeApp
+    private val app = application as FinanceApp
     private val dao = app.db.dao()
 
     /** Intervallo scelto per il grafico del saldo. */
