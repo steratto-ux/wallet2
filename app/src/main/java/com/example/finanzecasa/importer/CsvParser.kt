@@ -3,7 +3,7 @@ package com.example.finanzecasa.importer
 /** Parser CSV (RFC 4180): campi tra virgolette, "" come escape, a capo dentro le note, CRLF/LF, BOM. */
 object CsvParser {
     fun parse(input: String): List<List<String>> {
-        val text = input.removePrefix("\uFEFF")
+        val text = input.removePrefix("﻿")
         val rows = mutableListOf<List<String>>()
         var row = mutableListOf<String>()
         val field = StringBuilder()

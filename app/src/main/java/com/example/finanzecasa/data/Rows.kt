@@ -1,6 +1,6 @@
 package com.example.finanzecasa.data
 
-/** Riga "account con saldo": il saldo è la somma delle sue transazioni (come in Cashew). */
+/** Riga "account con saldo": il saldo è il valore iniziale più la somma delle sue transazioni. */
 data class AccountBalance(
     val id: Long,
     val name: String,
@@ -8,7 +8,7 @@ data class AccountBalance(
     val balanceCents: Long
 )
 
-/** Riga dell'elenco ultime transazioni. I trasferimenti compaiono una sola volta (gamba in uscita). */
+/** Riga dell'elenco transazioni. I trasferimenti compaiono una sola volta (gamba in uscita). */
 data class TransactionRow(
     val id: Long,
     val title: String,

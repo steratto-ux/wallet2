@@ -13,10 +13,24 @@ import com.example.finanzecasa.domain.toMillis
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import java.time.Instant
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.util.UUID
+import kotlin.math.abs
 
 enum class TxType { EXPENSE, INCOME, TRANSFER }
+
+/** Dati di una transazione esistente, nella forma usata dal modulo di inserimento. */
+data class LoadedTransaction(
+    val type: TxType,
+    val title: String,
+    val amountCents: Long,        // positivo
+    val accountId: Long,          // per i trasferimenti: account di partenza
+    val toAccountId: Long?,
+    val categoryId: Long?,
+    val dateTime: LocalDateTime
+)
 
 class NewTransactionViewModel(application: Application) : AndroidViewModel(application) {
     private val app = application as FinanceApp
@@ -79,5 +93,40 @@ class NewTransactionViewModel(application: Application) : AndroidViewModel(appli
                 )
             }
         }
+    }
+
+    /** Carica una transazione esistente; per un trasferimento ricompone le due gambe in un'unica operazione. */
+    suspend fun load(id: Long): LoadedTransaction? {
+        val t = dao.transactionById(id) ?: return null
+        val dt = Instant.ofEpochMilli(t.dateMillis).atZone(ZoneId.systemDefault()).toLocalDateTime()
+        val group = t.transferGroupId
+        if (t.kind == TxKind.TRANSFER && group != null) {
+            val legs = dao.transferLegs(group)
+            val out = legs.firstOrNull { it.amountCents < 0 } ?: t
+            val into = legs.firstOrNull { it.amountCents > 0 }
+            return LoadedTransaction(
+                TxType.TRANSFER, out.title, abs(out.amountCents), out.accountId, into?.accountId, null, dt
+            )
+        }
+        return LoadedTransaction(
+            if (t.amountCents < 0) TxType.EXPENSE else TxType.INCOME,
+            t.title, abs(t.amountCents), t.accountId, null, t.categoryId, dt
+        )
+    }
+
+    /** Elimina la transazione; per un trasferimento elimina entrambe le gambe. */
+    suspend fun delete(id: Long) = app.db.withTransaction {
+        val t = dao.transactionById(id) ?: return@withTransaction
+        val group = t.transferGroupId
+        if (group != null) dao.deleteTransferGroup(group) else dao.deleteTransaction(id)
+    }
+
+    /** Modifica = elimina la vecchia e salva la nuova (vale anche se cambia il tipo). */
+    suspend fun update(
+        id: Long, type: TxType, title: String, amountCents: Long,
+        accountId: Long, toAccountId: Long?, categoryId: Long?, dateTime: LocalDateTime
+    ) = app.db.withTransaction {
+        delete(id)
+        save(type, title, amountCents, accountId, toAccountId, categoryId, dateTime)
     }
 }

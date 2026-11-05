@@ -162,4 +162,39 @@ interface FinanceDao {
 
     @Query("DELETE FROM loans WHERE id = :id")
     suspend fun deleteLoan(id: Long)
+
+    // --- Elenco completo, modifica ed eliminazione transazioni
+    @Query("SELECT * FROM transactions WHERE id = :id")
+    suspend fun transactionById(id: Long): TransactionEntity?
+
+    @Query("SELECT * FROM transactions WHERE transferGroupId = :groupId")
+    suspend fun transferLegs(groupId: String): List<TransactionEntity>
+
+    @Query("DELETE FROM transactions WHERE id = :id")
+    suspend fun deleteTransaction(id: Long)
+
+    @Query("DELETE FROM transactions WHERE transferGroupId = :groupId")
+    suspend fun deleteTransferGroup(groupId: String)
+
+    /** Tutte le transazioni (anche future), filtrabili per account (una delle due gambe) e testo. */
+    @Query(
+        """SELECT t.id AS id, t.title AS title, t.amountCents AS amountCents, t.dateMillis AS dateMillis,
+                  t.kind AS kind, a.name AS accountName,
+                  (SELECT a2.name FROM transactions t2 JOIN accounts a2 ON a2.id = t2.accountId
+                   WHERE t2.transferGroupId = t.transferGroupId AND t2.id <> t.id LIMIT 1) AS counterpartName,
+                  c.name AS categoryName, p.name AS parentCategoryName
+           FROM transactions t
+           JOIN accounts a ON a.id = t.accountId
+           LEFT JOIN categories c ON c.id = t.categoryId
+           LEFT JOIN categories p ON p.id = c.parentId
+           WHERE (t.kind = 'NORMAL' OR t.amountCents < 0)
+             AND (:accountId IS NULL OR t.accountId = :accountId OR EXISTS (
+                   SELECT 1 FROM transactions t3
+                   WHERE t3.transferGroupId = t.transferGroupId AND t3.accountId = :accountId))
+             AND (:query = '' OR t.title LIKE '%' || :query || '%'
+                  OR c.name LIKE '%' || :query || '%' OR p.name LIKE '%' || :query || '%')
+           ORDER BY t.dateMillis DESC, t.id DESC
+           LIMIT :limit"""
+    )
+    fun observeAll(accountId: Long?, query: String, limit: Int): Flow<List<TransactionRow>>
 }

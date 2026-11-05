@@ -16,7 +16,9 @@ import java.time.LocalDate
 import java.util.concurrent.TimeUnit
 
 class FinanceApp : Application() {
-    val db: AppDatabase by lazy { Room.databaseBuilder(this, AppDatabase::class.java, "finanze.db").addMigrations(MIGRATION_1_2).build() }
+    val db: AppDatabase by lazy {
+        Room.databaseBuilder(this, AppDatabase::class.java, "finanze.db").addMigrations(MIGRATION_1_2).build()
+    }
     val importRepository by lazy { ImportRepository(db) }
 
     override fun onCreate() {

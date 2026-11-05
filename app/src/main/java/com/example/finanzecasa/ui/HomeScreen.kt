@@ -2,6 +2,7 @@ package com.example.finanzecasa.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -13,16 +14,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.clickable
 import androidx.compose.material3.Card
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -48,6 +47,7 @@ fun HomeScreen(
     onNewAccount: () -> Unit,
     onEditAccount: (Long) -> Unit,
     onOpen: (String) -> Unit,
+    onOpenTransaction: (Long) -> Unit,
     vm: HomeViewModel = viewModel()
 ) {
     val state by vm.state.collectAsState()
@@ -129,13 +129,16 @@ fun HomeScreen(
             item {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {
-                        Text("Ultime transazioni", style = MaterialTheme.typography.labelLarge)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Ultime transazioni", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+                            TextButton(onClick = { onOpen("transactions") }) { Text("Vedi tutte") }
+                        }
                         if (state.recent.isEmpty()) {
                             Text("Nessuna transazione", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
                         }
                         state.recent.forEachIndexed { i, t ->
                             if (i > 0) HorizontalDivider()
-                            TransactionItem(t)
+                            TransactionItem(t) { onOpenTransaction(t.id) }
                         }
                     }
                 }
@@ -169,7 +172,7 @@ private fun SummaryBox(label: String, value: String, valueColor: Color, modifier
 }
 
 @Composable
-private fun TransactionItem(t: TransactionRow) {
+fun TransactionItem(t: TransactionRow, onClick: (() -> Unit)? = null) {
     val isTransfer = t.kind == TxKind.TRANSFER
     val category = listOfNotNull(t.parentCategoryName, t.categoryName).joinToString(" › ")
     val title = t.title.ifBlank {
@@ -188,12 +191,14 @@ private fun TransactionItem(t: TransactionRow) {
         t.amountCents > 0 -> "+" + formatMoney(t.amountCents)
         else -> formatMoney(t.amountCents)
     }
+    val scheduled = if (t.dateMillis > System.currentTimeMillis()) " · programmata" else ""
+    val rowModifier = if (onClick != null) Modifier.fillMaxWidth().clickable(onClick = onClick) else Modifier.fillMaxWidth()
 
-    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(rowModifier.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                "$where · ${formatDay(t.dateMillis)}",
+                "$where · ${formatDay(t.dateMillis)}$scheduled",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1, overflow = TextOverflow.Ellipsis

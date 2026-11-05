@@ -1,8 +1,8 @@
 package com.example.finanzecasa
 
+import com.example.finanzecasa.ui.centsToInput
 import com.example.finanzecasa.ui.parseAmountToCents
 import com.example.finanzecasa.ui.parseSignedCents
-import com.example.finanzecasa.ui.centsToInput
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

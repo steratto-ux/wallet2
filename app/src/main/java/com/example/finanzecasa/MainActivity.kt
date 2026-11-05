@@ -26,6 +26,7 @@ import com.example.finanzecasa.ui.LoansScreen
 import com.example.finanzecasa.ui.NewTransactionScreen
 import com.example.finanzecasa.ui.SubscriptionFormScreen
 import com.example.finanzecasa.ui.SubscriptionsScreen
+import com.example.finanzecasa.ui.TransactionsScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -49,11 +50,13 @@ class MainActivity : ComponentActivity() {
 private fun AppRoot() {
     var route by rememberSaveable { mutableStateOf("home") }
     var editId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var editReturn by rememberSaveable { mutableStateOf("home") } // dove tornare dopo aver modificato una transazione
 
     val back: () -> Unit = {
         route = when (route) {
             "subscriptionForm" -> "subscriptions"
             "loanForm" -> "loans"
+            "editTransaction" -> editReturn
             else -> "home"
         }
     }
@@ -61,6 +64,11 @@ private fun AppRoot() {
 
     when (route) {
         "newTransaction" -> NewTransactionScreen(onClose = back)
+        "editTransaction" -> NewTransactionScreen(transactionId = editId, onClose = back)
+        "transactions" -> TransactionsScreen(
+            onBack = back,
+            onOpen = { editId = it; editReturn = "transactions"; route = "editTransaction" }
+        )
         "account" -> AccountFormScreen(accountId = editId, onClose = back)
         "categories" -> CategoriesScreen(onBack = back)
         "subscriptions" -> SubscriptionsScreen(onBack = back, onOpenForm = { editId = it; route = "subscriptionForm" })
@@ -71,7 +79,8 @@ private fun AppRoot() {
             onAddTransaction = { route = "newTransaction" },
             onNewAccount = { editId = null; route = "account" },
             onEditAccount = { editId = it; route = "account" },
-            onOpen = { route = it }
+            onOpen = { route = it },
+            onOpenTransaction = { editId = it; editReturn = "home"; route = "editTransaction" }
         )
     }
 }

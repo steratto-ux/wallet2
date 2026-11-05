@@ -32,6 +32,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -67,9 +68,14 @@ internal fun buildCategoryOptions(all: List<CategoryEntity>): List<CategoryOptio
     }
 }
 
+/** Nuova transazione (transactionId == null) oppure modifica/eliminazione di una esistente. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NewTransactionScreen(onClose: () -> Unit, vm: NewTransactionViewModel = viewModel()) {
+fun NewTransactionScreen(
+    transactionId: Long? = null,
+    onClose: () -> Unit,
+    vm: NewTransactionViewModel = viewModel()
+) {
     val accounts by vm.accounts.collectAsState()
     val categories by vm.categories.collectAsState()
     val scope = rememberCoroutineScope()
@@ -86,6 +92,23 @@ fun NewTransactionScreen(onClose: () -> Unit, vm: NewTransactionViewModel = view
     var showDate by remember { mutableStateOf(false) }
     var showTime by remember { mutableStateOf(false) }
     var showNewCategory by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    var loaded by rememberSaveable { mutableStateOf(transactionId == null) }
+
+    LaunchedEffect(transactionId) {
+        if (transactionId != null && !loaded) {
+            vm.load(transactionId)?.let { t ->
+                type = t.type
+                title = t.title
+                amountText = centsToInput(t.amountCents)
+                selectedAccountId = t.accountId
+                selectedToId = t.toAccountId
+                categoryId = t.categoryId
+                dateTime = t.dateTime
+            }
+            loaded = true
+        }
+    }
 
     val accountId = selectedAccountId?.takeIf { id -> accounts.any { it.id == id } } ?: accounts.firstOrNull()?.id
     val toId = selectedToId?.takeIf { id -> id != accountId && accounts.any { it.id == id } }
@@ -97,7 +120,7 @@ fun NewTransactionScreen(onClose: () -> Unit, vm: NewTransactionViewModel = view
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Nuova transazione") },
+                title = { Text(if (transactionId == null) "Nuova transazione" else "Modifica transazione") },
                 navigationIcon = { TextButton(onClick = onClose) { Text("Annulla") } }
             )
         }
@@ -177,13 +200,17 @@ fun NewTransactionScreen(onClose: () -> Unit, vm: NewTransactionViewModel = view
                 onClick = {
                     val cents = parseAmountToCents(amountText)
                     when {
-                        accounts.isEmpty() -> error = "Non ci sono account: importa prima il CSV."
+                        accounts.isEmpty() -> error = "Non ci sono account: creane uno dalla schermata principale."
                         cents == null -> error = "Inserisci un importo maggiore di zero."
                         accountId == null -> error = "Seleziona un account."
                         type == TxType.TRANSFER && (toId == null || toId == accountId) ->
                             error = "Scegli due account diversi."
                         else -> scope.launch {
-                            vm.save(type, title.trim(), cents, accountId, toId, categoryId, dateTime)
+                            if (transactionId == null) {
+                                vm.save(type, title.trim(), cents, accountId, toId, categoryId, dateTime)
+                            } else {
+                                vm.update(transactionId, type, title.trim(), cents, accountId, toId, categoryId, dateTime)
+                            }
                             val msg = if (isFuture) "Programmata: verrà conteggiata il ${dateTime.format(whenFmt)}"
                             else "Transazione salvata"
                             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
@@ -192,9 +219,30 @@ fun NewTransactionScreen(onClose: () -> Unit, vm: NewTransactionViewModel = view
                     }
                 }
             ) { Text("Salva") }
+
+            if (transactionId != null) {
+                OutlinedButton(onClick = { confirmDelete = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Elimina transazione", color = MaterialTheme.colorScheme.error)
+                }
+            }
         }
     }
 
+    if (confirmDelete && transactionId != null) {
+        ConfirmDialog(
+            text = if (type == TxType.TRANSFER) "Eliminare il trasferimento? Verranno tolte entrambe le righe."
+            else "Eliminare la transazione?",
+            confirmLabel = "Elimina",
+            onConfirm = {
+                scope.launch {
+                    vm.delete(transactionId)
+                    Toast.makeText(context, "Transazione eliminata", Toast.LENGTH_SHORT).show()
+                    onClose()
+                }
+            },
+            onDismiss = { confirmDelete = false }
+        )
+    }
     if (showDate) {
         DatePickerDialogBox(
             initial = dateTime.toLocalDate(),
