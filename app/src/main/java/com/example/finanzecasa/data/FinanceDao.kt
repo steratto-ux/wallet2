@@ -1,0 +1,165 @@
+package com.example.finanzecasa.data
+
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import androidx.room.Update
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface FinanceDao {
+    // --- Account
+    @Query("SELECT * FROM accounts ORDER BY name")
+    fun observeAccounts(): Flow<List<AccountEntity>>
+
+    @Query("SELECT * FROM accounts WHERE name = :name LIMIT 1")
+    suspend fun accountByName(name: String): AccountEntity?
+
+    @Query("SELECT * FROM accounts WHERE id = :id")
+    suspend fun accountById(id: Long): AccountEntity?
+
+    @Insert
+    suspend fun insertAccount(a: AccountEntity): Long
+
+    @Query(
+        "SELECT * FROM accounts WHERE type = 'CREDIT_CARD' AND cycleStartDay IS NOT NULL " +
+            "AND debitDay IS NOT NULL AND linkedAccountId IS NOT NULL AND autoDebitSinceEpochDay IS NOT NULL"
+    )
+    suspend fun configuredCards(): List<AccountEntity>
+
+    // --- Categorie
+    @Query(
+        "SELECT * FROM categories WHERE name = :name AND " +
+            "((:parentId IS NULL AND parentId IS NULL) OR parentId = :parentId) LIMIT 1"
+    )
+    suspend fun categoryByName(name: String, parentId: Long?): CategoryEntity?
+
+    @Insert
+    suspend fun insertCategory(c: CategoryEntity): Long
+
+    // --- Transazioni
+    @Insert
+    suspend fun insertTransaction(t: TransactionEntity): Long
+
+    @Query(
+        "SELECT COUNT(*) FROM transactions WHERE accountId = :accountId AND dateMillis = :dateMillis " +
+            "AND amountCents = :amountCents AND title = :title"
+    )
+    suspend fun countSame(accountId: Long, dateMillis: Long, amountCents: Long, title: String): Int
+
+    /** Somma delle sole transazioni "normali" (esclude i trasferimenti) nel periodo. */
+    @Query(
+        "SELECT COALESCE(SUM(amountCents), 0) FROM transactions WHERE accountId = :accountId " +
+            "AND kind = 'NORMAL' AND dateMillis BETWEEN :fromMillis AND :toMillis"
+    )
+    suspend fun sumNormal(accountId: Long, fromMillis: Long, toMillis: Long): Long
+
+    // --- Estratti carta
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertStatement(s: CardStatementEntity): Long
+
+    @Query("SELECT MAX(debitEpochDay) FROM card_statements WHERE cardAccountId = :cardId")
+    suspend fun lastDebitEpochDay(cardId: Long): Long?
+
+    // --- Abbonamenti e prestiti
+    @Query("SELECT * FROM subscriptions WHERE active = 1 AND nextDueEpochDay <= :epochDay")
+    suspend fun dueSubscriptions(epochDay: Long): List<SubscriptionEntity>
+
+    @Update
+    suspend fun updateSubscription(s: SubscriptionEntity)
+
+    @Query("SELECT * FROM loans WHERE remainingInstallments > 0 AND nextDueEpochDay <= :epochDay")
+    suspend fun dueLoans(epochDay: Long): List<LoanEntity>
+
+    @Update
+    suspend fun updateLoan(l: LoanEntity)
+
+    // --- Schermata principale
+    @Query(
+        """SELECT a.id AS id, a.name AS name, a.type AS type, a.initialBalanceCents + COALESCE(SUM(t.amountCents), 0) AS balanceCents
+           FROM accounts a LEFT JOIN transactions t ON t.accountId = a.id AND t.dateMillis < :toMillis
+           GROUP BY a.id
+           ORDER BY CASE a.type WHEN 'BANK' THEN 0 WHEN 'CASH' THEN 1 ELSE 2 END, a.name"""
+    )
+    fun observeBalances(toMillis: Long): Flow<List<AccountBalance>>
+
+    /** Spese del periodo (positivo). I trasferimenti non contano. */
+    @Query(
+        "SELECT COALESCE(SUM(-amountCents), 0) FROM transactions WHERE kind = 'NORMAL' AND amountCents < 0 " +
+            "AND dateMillis >= :fromMillis AND dateMillis < :toMillis"
+    )
+    fun observeExpenses(fromMillis: Long, toMillis: Long): Flow<Long>
+
+    /** Entrate del periodo. I trasferimenti non contano. */
+    @Query(
+        "SELECT COALESCE(SUM(amountCents), 0) FROM transactions WHERE kind = 'NORMAL' AND amountCents > 0 " +
+            "AND dateMillis >= :fromMillis AND dateMillis < :toMillis"
+    )
+    fun observeIncome(fromMillis: Long, toMillis: Long): Flow<Long>
+
+    @Query(
+        """SELECT t.id AS id, t.title AS title, t.amountCents AS amountCents, t.dateMillis AS dateMillis,
+                  t.kind AS kind, a.name AS accountName,
+                  (SELECT a2.name FROM transactions t2 JOIN accounts a2 ON a2.id = t2.accountId
+                   WHERE t2.transferGroupId = t.transferGroupId AND t2.id <> t.id LIMIT 1) AS counterpartName,
+                  c.name AS categoryName, p.name AS parentCategoryName
+           FROM transactions t
+           JOIN accounts a ON a.id = t.accountId
+           LEFT JOIN categories c ON c.id = t.categoryId
+           LEFT JOIN categories p ON p.id = c.parentId
+           WHERE t.dateMillis < :toMillis AND (t.kind = 'NORMAL' OR t.amountCents < 0)
+           ORDER BY t.dateMillis DESC, t.id DESC
+           LIMIT :limit"""
+    )
+    fun observeRecent(toMillis: Long, limit: Int): Flow<List<TransactionRow>>
+
+    @Query("SELECT * FROM categories ORDER BY name")
+    fun observeCategories(): Flow<List<CategoryEntity>>
+
+    // --- Gestione account / categorie / abbonamenti / prestiti
+    @Update
+    suspend fun updateAccount(a: AccountEntity)
+
+    @Query("SELECT * FROM categories WHERE id = :id")
+    suspend fun categoryById(id: Long): CategoryEntity?
+
+    @Update
+    suspend fun updateCategory(c: CategoryEntity)
+
+    @Query("UPDATE transactions SET categoryId = NULL WHERE categoryId = :id OR categoryId IN (SELECT id FROM categories WHERE parentId = :id)")
+    suspend fun clearCategoryInTransactions(id: Long)
+
+    @Query("UPDATE subscriptions SET categoryId = NULL WHERE categoryId = :id OR categoryId IN (SELECT id FROM categories WHERE parentId = :id)")
+    suspend fun clearCategoryInSubscriptions(id: Long)
+
+    @Query("UPDATE loans SET categoryId = NULL WHERE categoryId = :id OR categoryId IN (SELECT id FROM categories WHERE parentId = :id)")
+    suspend fun clearCategoryInLoans(id: Long)
+
+    @Query("DELETE FROM categories WHERE id = :id OR parentId = :id")
+    suspend fun deleteCategoryTree(id: Long)
+
+    @Query("SELECT * FROM subscriptions ORDER BY name")
+    fun observeSubscriptions(): Flow<List<SubscriptionEntity>>
+
+    @Query("SELECT * FROM subscriptions WHERE id = :id")
+    suspend fun subscriptionById(id: Long): SubscriptionEntity?
+
+    @Insert
+    suspend fun insertSubscription(s: SubscriptionEntity): Long
+
+    @Query("DELETE FROM subscriptions WHERE id = :id")
+    suspend fun deleteSubscription(id: Long)
+
+    @Query("SELECT * FROM loans ORDER BY name")
+    fun observeLoans(): Flow<List<LoanEntity>>
+
+    @Query("SELECT * FROM loans WHERE id = :id")
+    suspend fun loanById(id: Long): LoanEntity?
+
+    @Insert
+    suspend fun insertLoan(l: LoanEntity): Long
+
+    @Query("DELETE FROM loans WHERE id = :id")
+    suspend fun deleteLoan(id: Long)
+}
