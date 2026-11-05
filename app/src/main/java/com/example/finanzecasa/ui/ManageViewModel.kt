@@ -7,13 +7,17 @@ import androidx.room.withTransaction
 import com.example.finanzecasa.FinanceApp
 import com.example.finanzecasa.data.AccountEntity
 import com.example.finanzecasa.data.AccountType
+import com.example.finanzecasa.data.BudgetCategoryEntity
+import com.example.finanzecasa.data.BudgetEntity
 import com.example.finanzecasa.data.CategoryEntity
 import com.example.finanzecasa.data.LoanEntity
 import com.example.finanzecasa.data.SubscriptionEntity
 import com.example.finanzecasa.domain.DueItemsProcessor
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
 
@@ -68,14 +72,16 @@ class ManageViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     // --- Categorie
-    suspend fun createCategory(name: String, parentId: Long?): Long =
-        dao.categoryByName(name, parentId)?.id ?: dao.insertCategory(CategoryEntity(name = name, parentId = parentId))
+    suspend fun createCategory(name: String, parentId: Long?, icon: String?): Long =
+        dao.categoryByName(name, parentId)?.id
+            ?: dao.insertCategory(CategoryEntity(name = name, parentId = parentId, icon = icon))
 
-    suspend fun renameCategory(id: Long, name: String): String? {
+    /** Cambia nome e icona (icon == null = automatica). Restituisce un messaggio d'errore oppure null. */
+    suspend fun saveCategory(id: Long, name: String, icon: String?): String? {
         val old = dao.categoryById(id) ?: return "Categoria non trovata."
         val clash = dao.categoryByName(name, old.parentId)
         if (clash != null && clash.id != id) return "Esiste già una categoria con questo nome."
-        dao.updateCategory(old.copy(name = name))
+        dao.updateCategory(old.copy(name = name, icon = icon))
         return null
     }
 
@@ -84,7 +90,38 @@ class ManageViewModel(application: Application) : AndroidViewModel(application) 
         dao.clearCategoryInTransactions(id)
         dao.clearCategoryInSubscriptions(id)
         dao.clearCategoryInLoans(id)
+        dao.clearCategoryInBudgets(id)
         dao.deleteCategoryTree(id)
+    }
+
+    // --- Budget (mensili, su una o più categorie)
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val budgets: StateFlow<List<BudgetCardData>> =
+        minuteClock().flatMapLatest { now -> budgetCards(dao, now) }.asState(emptyList())
+
+    suspend fun budgetById(id: Long) = dao.budgetById(id)
+
+    suspend fun budgetCategoryIds(id: Long): List<Long> = dao.budgetCategoryIds(id)
+
+    /** Crea (id == null) o aggiorna un budget con le sue categorie. */
+    suspend fun saveBudget(id: Long?, name: String, amountCents: Long, categoryIds: Set<Long>) {
+        app.db.withTransaction {
+            val budgetId = if (id == null) {
+                dao.insertBudget(BudgetEntity(name = name, amountCents = amountCents))
+            } else {
+                dao.updateBudget(BudgetEntity(id = id, name = name, amountCents = amountCents))
+                dao.deleteBudgetLinks(id)
+                id
+            }
+            dao.insertBudgetLinks(categoryIds.map { BudgetCategoryEntity(budgetId, it) })
+        }
+    }
+
+    suspend fun deleteBudget(id: Long) {
+        app.db.withTransaction {
+            dao.deleteBudgetLinks(id)
+            dao.deleteBudgetRow(id)
+        }
     }
 
     // --- Abbonamenti

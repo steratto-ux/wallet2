@@ -261,8 +261,8 @@ fun NewTransactionScreen(
         NewCategoryDialog(
             parents = categories.filter { it.parentId == null }.sortedBy { it.name.lowercase() },
             onDismiss = { showNewCategory = false },
-            onCreate = { name, parentId ->
-                scope.launch { categoryId = vm.createCategory(name, parentId) }
+            onCreate = { name, parentId, icon ->
+                scope.launch { categoryId = vm.createCategory(name, parentId, icon) }
                 showNewCategory = false
             }
         )
@@ -291,26 +291,29 @@ fun DropdownField(label: String, value: String, entries: List<Pair<String, () ->
 fun NewCategoryDialog(
     parents: List<CategoryEntity>,
     onDismiss: () -> Unit,
-    onCreate: (name: String, parentId: Long?) -> Unit
+    onCreate: (name: String, parentId: Long?, icon: String?) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
+    var icon by remember { mutableStateOf<String?>(null) }
     var parent by remember { mutableStateOf<CategoryEntity?>(null) }
     val none = "Nessuna (categoria principale)"
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Nuova categoria") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nome") }, singleLine = true)
                 DropdownField(
                     label = "Sotto-categoria di",
                     value = parent?.name ?: none,
                     entries = listOf(none to { parent = null }) + parents.map { p -> p.name to { parent = p } }
                 )
+                Text("Icona", style = MaterialTheme.typography.labelLarge)
+                IconPicker(selected = icon, previewName = name, onSelect = { icon = it })
             }
         },
         confirmButton = {
-            TextButton(enabled = name.isNotBlank(), onClick = { onCreate(name.trim(), parent?.id) }) { Text("Crea") }
+            TextButton(enabled = name.isNotBlank(), onClick = { onCreate(name.trim(), parent?.id, icon) }) { Text("Crea") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annulla") } }
     )

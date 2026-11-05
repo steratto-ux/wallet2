@@ -31,7 +31,9 @@ data class AccountEntity(
 data class CategoryEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
-    val parentId: Long? = null
+    val parentId: Long? = null,
+    /** Chiave dell'icona scelta; null = icona automatica in base al nome. */
+    val icon: String? = null
 )
 
 @Entity(
@@ -93,4 +95,23 @@ data class CardStatementEntity(
     val periodEndEpochDay: Long,
     val debitEpochDay: Long,
     val amountCents: Long
+)
+
+/** Budget mensile con un nome e un importo; le categorie incluse stanno in [BudgetCategoryEntity]. */
+@Entity(tableName = "budgets")
+data class BudgetEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val amountCents: Long
+)
+
+/** Categorie incluse in un budget (una categoria principale include anche le sue sotto-categorie). */
+@Entity(
+    tableName = "budget_categories",
+    primaryKeys = ["budgetId", "categoryId"],
+    indices = [Index("categoryId")]
+)
+data class BudgetCategoryEntity(
+    val budgetId: Long,
+    val categoryId: Long
 )

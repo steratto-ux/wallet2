@@ -103,7 +103,8 @@ interface FinanceDao {
                   t.kind AS kind, a.name AS accountName,
                   (SELECT a2.name FROM transactions t2 JOIN accounts a2 ON a2.id = t2.accountId
                    WHERE t2.transferGroupId = t.transferGroupId AND t2.id <> t.id LIMIT 1) AS counterpartName,
-                  c.name AS categoryName, p.name AS parentCategoryName
+                  c.name AS categoryName, c.icon AS categoryIcon,
+                  p.name AS parentCategoryName, p.icon AS parentCategoryIcon
            FROM transactions t
            JOIN accounts a ON a.id = t.accountId
            LEFT JOIN categories c ON c.id = t.categoryId
@@ -182,7 +183,8 @@ interface FinanceDao {
                   t.kind AS kind, a.name AS accountName,
                   (SELECT a2.name FROM transactions t2 JOIN accounts a2 ON a2.id = t2.accountId
                    WHERE t2.transferGroupId = t.transferGroupId AND t2.id <> t.id LIMIT 1) AS counterpartName,
-                  c.name AS categoryName, p.name AS parentCategoryName
+                  c.name AS categoryName, c.icon AS categoryIcon,
+                  p.name AS parentCategoryName, p.icon AS parentCategoryIcon
            FROM transactions t
            JOIN accounts a ON a.id = t.accountId
            LEFT JOIN categories c ON c.id = t.categoryId
@@ -197,4 +199,66 @@ interface FinanceDao {
            LIMIT :limit"""
     )
     fun observeAll(accountId: Long?, query: String, limit: Int): Flow<List<TransactionRow>>
+
+    // --- Grafico del saldo
+    @Query("SELECT COALESCE(SUM(initialBalanceCents), 0) FROM accounts")
+    fun observeInitialTotal(): Flow<Long>
+
+    /** Somma di tutte le transazioni prima di un istante (i trasferimenti si annullano a livello totale). */
+    @Query("SELECT COALESCE(SUM(amountCents), 0) FROM transactions WHERE dateMillis < :toMillis")
+    fun observeSumBefore(toMillis: Long): Flow<Long>
+
+    @Query("SELECT dateMillis, amountCents FROM transactions WHERE dateMillis >= :fromMillis AND dateMillis < :toMillis")
+    fun observeTxPoints(fromMillis: Long, toMillis: Long): Flow<List<TxPoint>>
+
+    // --- Budget
+    @Query("SELECT * FROM budgets ORDER BY name")
+    fun observeBudgets(): Flow<List<BudgetEntity>>
+
+    @Query("SELECT * FROM budget_categories")
+    fun observeBudgetLinks(): Flow<List<BudgetCategoryEntity>>
+
+    @Query("SELECT * FROM budgets WHERE id = :id")
+    suspend fun budgetById(id: Long): BudgetEntity?
+
+    @Query("SELECT categoryId FROM budget_categories WHERE budgetId = :budgetId")
+    suspend fun budgetCategoryIds(budgetId: Long): List<Long>
+
+    @Insert
+    suspend fun insertBudget(b: BudgetEntity): Long
+
+    @Update
+    suspend fun updateBudget(b: BudgetEntity)
+
+    @Query("DELETE FROM budgets WHERE id = :id")
+    suspend fun deleteBudgetRow(id: Long)
+
+    @Query("DELETE FROM budget_categories WHERE budgetId = :budgetId")
+    suspend fun deleteBudgetLinks(budgetId: Long)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBudgetLinks(links: List<BudgetCategoryEntity>)
+
+    @Query("DELETE FROM budget_categories WHERE categoryId = :id OR categoryId IN (SELECT id FROM categories WHERE parentId = :id)")
+    suspend fun clearCategoryInBudgets(id: Long)
+
+    /**
+     * Speso per budget nel periodo: solo uscite normali delle categorie del budget
+     * (una categoria principale include le sue sotto-categorie; nessun doppio conteggio).
+     */
+    @Query(
+        """SELECT b.id AS budgetId, COALESCE((
+               SELECT SUM(-t.amountCents) FROM transactions t
+               WHERE t.kind = 'NORMAL' AND t.amountCents < 0
+                 AND t.dateMillis >= :fromMillis AND t.dateMillis < :toMillis
+                 AND t.categoryId IN (
+                     SELECT bc.categoryId FROM budget_categories bc WHERE bc.budgetId = b.id
+                     UNION
+                     SELECT c.id FROM categories c
+                       JOIN budget_categories bc2 ON bc2.categoryId = c.parentId
+                     WHERE bc2.budgetId = b.id)
+           ), 0) AS spentCents
+           FROM budgets b"""
+    )
+    fun observeBudgetSpending(fromMillis: Long, toMillis: Long): Flow<List<BudgetSpent>>
 }

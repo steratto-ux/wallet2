@@ -53,34 +53,30 @@ fun LoansScreen(onBack: () -> Unit, onOpenForm: (Long?) -> Unit, vm: ManageViewM
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("Debito residuo stimato", style = MaterialTheme.typography.labelLarge)
-                        Text(formatMoney(residual), style = MaterialTheme.typography.titleLarge)
-                        Text(
-                            "Calcolato dalle rate rimanenti e dal tasso; non è sottratto dal patrimonio netto.",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
+                AppCard(Modifier.fillMaxWidth()) {
+                    Text("Debito residuo stimato", style = MaterialTheme.typography.labelLarge)
+                    Text(formatMoney(residual), style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        "Calcolato dalle rate rimanenti e dal tasso; non è sottratto dal patrimonio netto.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
             if (loans.isEmpty()) item { Text("Nessun prestito. Tocca + per aggiungerne uno.") }
             items(loans) { l ->
                 val rest = LoanMath.remainingPrincipalCents(l.installmentCents, l.annualRatePercent, l.remainingInstallments)
-                Card(Modifier.fillMaxWidth().clickable { onOpenForm(l.id) }) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text(l.name, style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "Rata ${formatMoney(l.installmentCents)} · ${l.remainingInstallments} rate rimanenti · ${accountNames[l.accountId] ?: "?"}",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Text(
-                            if (l.remainingInstallments > 0)
-                                "Prossima ${formatDate(LocalDate.ofEpochDay(l.nextDueEpochDay))} · debito residuo ≈ ${formatMoney(rest)}"
-                            else "Estinto",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
+                AppCard(Modifier.fillMaxWidth(), onClick = { onOpenForm(l.id) }) {
+                    Text(l.name, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Rata ${formatMoney(l.installmentCents)} · ${l.remainingInstallments} rate rimanenti · ${accountNames[l.accountId] ?: "?"}",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        if (l.remainingInstallments > 0)
+                            "Prossima ${formatDate(LocalDate.ofEpochDay(l.nextDueEpochDay))} · debito residuo ≈ ${formatMoney(rest)}"
+                        else "Estinto",
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
             }
         }
@@ -183,7 +179,7 @@ fun LoanFormScreen(id: Long?, onClose: () -> Unit, vm: ManageViewModel = viewMod
         NewCategoryDialog(
             parents = categories.filter { it.parentId == null }.sortedBy { it.name.lowercase() },
             onDismiss = { showNewCategory = false },
-            onCreate = { n, p -> scope.launch { categoryId = vm.createCategory(n, p) }; showNewCategory = false }
+            onCreate = { n, p, i -> scope.launch { categoryId = vm.createCategory(n, p, i) }; showNewCategory = false }
         )
     }
     if (confirmDelete && id != null) {

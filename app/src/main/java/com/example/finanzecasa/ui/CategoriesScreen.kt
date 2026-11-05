@@ -4,11 +4,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -23,8 +26,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.finanzecasa.data.CategoryEntity
@@ -38,6 +41,7 @@ fun CategoriesScreen(onBack: () -> Unit, vm: ManageViewModel = viewModel()) {
     var editing by remember { mutableStateOf<CategoryEntity?>(null) }
     var deleting by remember { mutableStateOf<CategoryEntity?>(null) }
 
+    val byId = categories.associateBy { it.id }
     val parents = categories.filter { it.parentId == null }.sortedBy { it.name.lowercase() }
     val childrenOf = categories.filter { it.parentId != null }.groupBy { it.parentId }
 
@@ -54,17 +58,25 @@ fun CategoriesScreen(onBack: () -> Unit, vm: ManageViewModel = viewModel()) {
             if (parents.isEmpty()) item { Text("Nessuna categoria. Tocca + per crearne una.") }
             items(parents) { parent ->
                 Column {
-                    Text(
-                        parent.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium,
-                        modifier = Modifier.fillMaxWidth().clickable { editing = parent }.padding(vertical = 12.dp)
-                    )
-                    childrenOf[parent.id].orEmpty().sortedBy { it.name.lowercase() }.forEach { child ->
-                        Text(
-                            "› ${child.name}", style = MaterialTheme.typography.bodyLarge,
-                            modifier = Modifier.fillMaxWidth().clickable { editing = child }.padding(start = 20.dp, top = 8.dp, bottom = 8.dp)
-                        )
+                    Row(
+                        Modifier.fillMaxWidth().clickable { editing = parent }.padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        CategoryBadge(resolveCategoryIcon(parent, byId), size = 40.dp)
+                        Text(parent.name, style = MaterialTheme.typography.titleMedium)
                     }
-                    HorizontalDivider(Modifier.padding(top = 4.dp))
+                    childrenOf[parent.id].orEmpty().sortedBy { it.name.lowercase() }.forEach { child ->
+                        Row(
+                            Modifier.fillMaxWidth().clickable { editing = child }.padding(start = 28.dp, top = 6.dp, bottom = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            CategoryBadge(resolveCategoryIcon(child, byId), size = 32.dp)
+                            Text(child.name, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                    HorizontalDivider(Modifier.padding(top = 6.dp), color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
         }
@@ -74,15 +86,15 @@ fun CategoriesScreen(onBack: () -> Unit, vm: ManageViewModel = viewModel()) {
         NewCategoryDialog(
             parents = parents,
             onDismiss = { showNew = false },
-            onCreate = { name, parentId -> scope.launch { vm.createCategory(name, parentId) }; showNew = false }
+            onCreate = { name, parentId, icon -> scope.launch { vm.createCategory(name, parentId, icon) }; showNew = false }
         )
     }
     editing?.let { cat ->
         EditCategoryDialog(
             category = cat,
             onDismiss = { editing = null },
-            onSave = { newName ->
-                scope.launch { vm.renameCategory(cat.id, newName) }
+            onSave = { newName, icon ->
+                scope.launch { vm.saveCategory(cat.id, newName, icon) }
                 editing = null
             },
             onDelete = { deleting = cat; editing = null }
@@ -103,22 +115,25 @@ fun CategoriesScreen(onBack: () -> Unit, vm: ManageViewModel = viewModel()) {
 private fun EditCategoryDialog(
     category: CategoryEntity,
     onDismiss: () -> Unit,
-    onSave: (String) -> Unit,
+    onSave: (name: String, icon: String?) -> Unit,
     onDelete: () -> Unit
 ) {
     var name by remember { mutableStateOf(category.name) }
+    var icon by remember { mutableStateOf(category.icon) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Modifica categoria") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nome") }, singleLine = true)
+                Text("Icona", style = MaterialTheme.typography.labelLarge)
+                IconPicker(selected = icon, previewName = name, onSelect = { icon = it })
                 TextButton(onClick = onDelete) {
                     Text("Elimina categoria", color = MaterialTheme.colorScheme.error)
                 }
             }
         },
-        confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim()) }) { Text("Salva") } },
+        confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim(), icon) }) { Text("Salva") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annulla") } }
     )
 }

@@ -18,3 +18,15 @@ fun formatDay(millis: Long): String =
 private val dateFmt: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ITALIAN)
 
 fun formatDate(date: java.time.LocalDate): String = date.format(dateFmt)
+
+private val moneyWhole: NumberFormat = NumberFormat.getCurrencyInstance(Locale.ITALY).apply {
+    minimumFractionDigits = 0
+    maximumFractionDigits = 0
+}
+
+/** Come [formatMoney], ma senza decimali quando l'importo è tondo ("400 €"). */
+fun formatMoneyShort(cents: Long): String =
+    if (cents % 100 == 0L) moneyWhole.format(cents / 100) else formatMoney(cents)
+
+/** "1 nov", "30 nov". */
+fun formatDayMonth(date: java.time.LocalDate): String = date.format(dayFmt)

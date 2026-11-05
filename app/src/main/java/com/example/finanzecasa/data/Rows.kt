@@ -18,5 +18,19 @@ data class TransactionRow(
     val accountName: String,
     val counterpartName: String?,     // solo trasferimenti: account di destinazione
     val categoryName: String?,
-    val parentCategoryName: String?
+    val categoryIcon: String?,
+    val parentCategoryName: String?,
+    val parentCategoryIcon: String?
+)
+
+/** Movimento minimo (data e importo) usato per costruire la serie del saldo. */
+data class TxPoint(
+    val dateMillis: Long,
+    val amountCents: Long
+)
+
+/** Speso del mese corrente per un budget (solo uscite delle sue categorie). */
+data class BudgetSpent(
+    val budgetId: Long,
+    val spentCents: Long
 )

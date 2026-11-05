@@ -43,8 +43,9 @@ class NewTransactionViewModel(application: Application) : AndroidViewModel(appli
         dao.observeCategories().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** Crea la categoria (o sotto-categoria se parentId != null) e restituisce l'id; riusa quella esistente. */
-    suspend fun createCategory(name: String, parentId: Long?): Long =
-        dao.categoryByName(name, parentId)?.id ?: dao.insertCategory(CategoryEntity(name = name, parentId = parentId))
+    suspend fun createCategory(name: String, parentId: Long?, icon: String?): Long =
+        dao.categoryByName(name, parentId)?.id
+            ?: dao.insertCategory(CategoryEntity(name = name, parentId = parentId, icon = icon))
 
     /**
      * Salva la transazione. Se [dateTime] è nel futuro viene salvata comunque: la schermata principale

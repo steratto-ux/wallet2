@@ -58,18 +58,16 @@ fun SubscriptionsScreen(onBack: () -> Unit, onOpenForm: (Long?) -> Unit, vm: Man
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                Card(Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(16.dp)) {
-                        Text("Costo degli abbonamenti attivi", style = MaterialTheme.typography.labelLarge)
-                        Text("${formatMoney(yearlyCents / 12)} al mese", style = MaterialTheme.typography.titleLarge)
-                        Text("${formatMoney(yearlyCents)} all'anno", style = MaterialTheme.typography.bodyMedium)
-                    }
+                AppCard(Modifier.fillMaxWidth()) {
+                    Text("Costo degli abbonamenti attivi", style = MaterialTheme.typography.labelLarge)
+                    Text("${formatMoney(yearlyCents / 12)} al mese", style = MaterialTheme.typography.titleLarge)
+                    Text("${formatMoney(yearlyCents)} all'anno", style = MaterialTheme.typography.bodyMedium)
                 }
             }
             if (subs.isEmpty()) item { Text("Nessun abbonamento. Tocca + per aggiungerne uno.") }
             items(subs) { s ->
-                Card(Modifier.fillMaxWidth().clickable { onOpenForm(s.id) }) {
-                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                AppCard(Modifier.fillMaxWidth(), onClick = { onOpenForm(s.id) }) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(s.name + if (s.active) "" else " (in pausa)", style = MaterialTheme.typography.titleMedium)
                             Text(
@@ -183,7 +181,7 @@ fun SubscriptionFormScreen(id: Long?, onClose: () -> Unit, vm: ManageViewModel =
         NewCategoryDialog(
             parents = categories.filter { it.parentId == null }.sortedBy { it.name.lowercase() },
             onDismiss = { showNewCategory = false },
-            onCreate = { n, p -> scope.launch { categoryId = vm.createCategory(n, p) }; showNewCategory = false }
+            onCreate = { n, p, i -> scope.launch { categoryId = vm.createCategory(n, p, i) }; showNewCategory = false }
         )
     }
     if (confirmDelete && id != null) {
