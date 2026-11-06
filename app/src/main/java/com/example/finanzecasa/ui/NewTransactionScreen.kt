@@ -1,6 +1,12 @@
 package com.example.finanzecasa.ui
 
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material3.AssistChip
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -46,6 +52,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.finanzecasa.data.CategoryEntity
+import com.example.finanzecasa.domain.Tags
+import java.io.File
+import java.util.UUID
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
@@ -95,6 +104,31 @@ fun NewTransactionScreen(
     var showNewCategory by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var loaded by rememberSaveable { mutableStateOf(transactionId == null) }
+    var tagsText by rememberSaveable { mutableStateOf("") }
+    var receiptPath by rememberSaveable { mutableStateOf<String?>(null) }
+    var addedReceipt by rememberSaveable { mutableStateOf<String?>(null) } // foto aggiunta in questa schermata
+    var cameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    val knownTags by vm.knownTags.collectAsState()
+
+    fun useReceipt(name: String?) {
+        if (name == null) {
+            Toast.makeText(context, "Impossibile leggere la foto", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (addedReceipt != null && addedReceipt != name) vm.discardReceipt(addedReceipt)
+        addedReceipt = name
+        receiptPath = name
+    }
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) scope.launch { useReceipt(vm.importReceiptPhoto(uri)) }
+    }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
+        val target = cameraUri
+        if (ok && target != null) scope.launch {
+            useReceipt(vm.importReceiptPhoto(target))
+            runCatching { File(context.cacheDir, "camera/" + (target.lastPathSegment ?: "")).delete() }
+        }
+    }
 
     LaunchedEffect(transactionId) {
         if (transactionId != null && !loaded) {
@@ -107,6 +141,8 @@ fun NewTransactionScreen(
                 selectedToId = t.toAccountId
                 categoryId = t.categoryId
                 dateTime = t.dateTime
+                tagsText = t.tags
+                receiptPath = t.receiptPath
             }
             loaded = true
         }
@@ -123,7 +159,9 @@ fun NewTransactionScreen(
         topBar = {
             TopAppBar(
                 title = { Text(if (transactionId == null) "Nuova transazione" else "Modifica transazione") },
-                navigationIcon = { TextButton(onClick = onClose) { Text("Annulla") } }
+                navigationIcon = {
+                    TextButton(onClick = { vm.discardReceipt(addedReceipt); onClose() }) { Text("Annulla") }
+                }
             )
         }
     ) { inner ->
@@ -159,6 +197,53 @@ fun NewTransactionScreen(
                     value = note, onValueChange = { note = it },
                     label = { Text("Note") }, minLines = 2, maxLines = 5, modifier = Modifier.fillMaxWidth()
                 )
+            }
+
+            // Tag e foto dello scontrino (non per i trasferimenti)
+            if (type != TxType.TRANSFER) {
+                OutlinedTextField(
+                    value = tagsText, onValueChange = { tagsText = it },
+                    label = { Text("Tag (separati da virgola)") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                )
+                val chosen = Tags.split(Tags.normalize(tagsText)).map { it.lowercase() }.toSet()
+                val suggestions = knownTags.filter { it.lowercase() !in chosen }.take(12)
+                if (suggestions.isNotEmpty()) {
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        suggestions.forEach { tag ->
+                            AssistChip(onClick = { tagsText = Tags.add(tagsText, tag) }, label = { Text("#$tag") })
+                        }
+                    }
+                }
+
+                Text("Scontrino", style = MaterialTheme.typography.labelLarge)
+                val photo = receiptPath
+                if (photo != null) {
+                    ReceiptImage(photo)
+                    OutlinedButton(
+                        onClick = {
+                            if (photo == addedReceipt) { vm.discardReceipt(photo); addedReceipt = null }
+                            receiptPath = null
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Rimuovi foto") }
+                } else {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedButton(
+                            onClick = {
+                                val dir = File(context.cacheDir, "camera").also { it.mkdirs() }
+                                val file = File(dir, "${UUID.randomUUID()}.jpg")
+                                val uri = FileProvider.getUriForFile(context, context.packageName + ".files", file)
+                                cameraUri = uri
+                                cameraLauncher.launch(uri)
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Scatta foto") }
+                        OutlinedButton(
+                            onClick = { galleryLauncher.launch("image/*") },
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Dalla galleria") }
+                    }
+                }
             }
 
             // Categoria (non per i trasferimenti)
@@ -217,9 +302,9 @@ fun NewTransactionScreen(
                             error = "Scegli due account diversi."
                         else -> scope.launch {
                             if (transactionId == null) {
-                                vm.save(type, title.trim(), cents, accountId, toId, categoryId, dateTime, note.trim())
+                                vm.save(type, title.trim(), cents, accountId, toId, categoryId, dateTime, note.trim(), tagsText, receiptPath)
                             } else {
-                                vm.update(transactionId, type, title.trim(), cents, accountId, toId, categoryId, dateTime, note.trim())
+                                vm.update(transactionId, type, title.trim(), cents, accountId, toId, categoryId, dateTime, note.trim(), tagsText, receiptPath)
                             }
                             val msg = if (isFuture) "Programmata: verrà conteggiata il ${dateTime.format(whenFmt)}"
                             else "Transazione salvata"

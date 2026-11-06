@@ -11,6 +11,8 @@ import com.example.finanzecasa.data.BudgetCategoryEntity
 import com.example.finanzecasa.data.BudgetEntity
 import com.example.finanzecasa.data.CategoryEntity
 import com.example.finanzecasa.data.LoanEntity
+import com.example.finanzecasa.data.RecurringEntity
+import com.example.finanzecasa.domain.AccountOrder
 import com.example.finanzecasa.data.SubscriptionEntity
 import com.example.finanzecasa.domain.BudgetHistory
 import com.example.finanzecasa.domain.DueItemsProcessor
@@ -40,6 +42,30 @@ class ManageViewModel(application: Application) : AndroidViewModel(application) 
     val categories: StateFlow<List<CategoryEntity>> = dao.observeCategories().asState(emptyList())
     val subscriptions: StateFlow<List<SubscriptionEntity>> = dao.observeSubscriptions().asState(emptyList())
     val loans: StateFlow<List<LoanEntity>> = dao.observeLoans().asState(emptyList())
+    val recurring: StateFlow<List<RecurringEntity>> = dao.observeRecurring().asState(emptyList())
+
+    /** Account nell'ordine scelto dall'utente (lo stesso della schermata principale). */
+    val orderedAccounts: StateFlow<List<AccountEntity>> = dao.observeAccountsOrdered().asState(emptyList())
+
+    // --- Ordine e visibilità degli account
+    suspend fun moveAccount(id: Long, delta: Int) = app.db.withTransaction {
+        val ids = dao.accountsOrdered().map { it.id }
+        AccountOrder.move(ids, id, delta).forEachIndexed { index, accountId ->
+            dao.setAccountSortOrder(accountId, index + 1)
+        }
+    }
+
+    suspend fun setAccountHidden(id: Long, hidden: Boolean) = dao.setAccountHidden(id, hidden)
+
+    // --- Transazioni ricorrenti
+    suspend fun recurringById(id: Long) = dao.recurringById(id)
+
+    suspend fun saveRecurring(r: RecurringEntity) {
+        if (r.id == 0L) dao.insertRecurring(r) else dao.updateRecurring(r)
+        DueItemsProcessor(app.db).run(LocalDate.now()) // registra subito le scadenze già trascorse
+    }
+
+    suspend fun deleteRecurring(id: Long) = dao.deleteRecurring(id)
 
     // --- Account
     suspend fun accountById(id: Long) = dao.accountById(id)
@@ -47,7 +73,8 @@ class ManageViewModel(application: Application) : AndroidViewModel(application) 
     /** Crea (id == null) o aggiorna un account. Restituisce un messaggio d'errore oppure null. */
     suspend fun saveAccount(
         id: Long?, name: String, type: AccountType, initialCents: Long,
-        cycleStartDay: Int?, debitDay: Int?, linkedAccountId: Long?
+        cycleStartDay: Int?, debitDay: Int?, linkedAccountId: Long?,
+        colorKey: String? = null, iconKey: String? = null
     ): String? {
         val clash = dao.accountByName(name)
         if (clash != null && clash.id != id) return "Esiste già un account con questo nome."
@@ -60,7 +87,10 @@ class ManageViewModel(application: Application) : AndroidViewModel(application) 
                     name = name, type = type, initialBalanceCents = initialCents,
                     cycleStartDay = cycleStartDay.takeIf { auto }, debitDay = debitDay.takeIf { auto },
                     linkedAccountId = linkedAccountId.takeIf { auto },
-                    autoDebitSinceEpochDay = today.takeIf { auto }
+                    autoDebitSinceEpochDay = today.takeIf { auto },
+                    // Se l'utente ha già scelto un ordine, il nuovo account va in fondo; altrimenti resta l'ordine automatico.
+                    sortOrder = dao.maxAccountSortOrder().let { if (it > 0) it + 1 else 0 },
+                    colorKey = colorKey, iconKey = iconKey
                 )
             )
         } else {
@@ -71,7 +101,8 @@ class ManageViewModel(application: Application) : AndroidViewModel(application) 
                     cycleStartDay = cycleStartDay.takeIf { auto }, debitDay = debitDay.takeIf { auto },
                     linkedAccountId = linkedAccountId.takeIf { auto },
                     // Chi configura la carta la prima volta parte da oggi: lo storico importato non viene toccato.
-                    autoDebitSinceEpochDay = if (auto) (old.autoDebitSinceEpochDay ?: today) else null
+                    autoDebitSinceEpochDay = if (auto) (old.autoDebitSinceEpochDay ?: today) else null,
+                    colorKey = colorKey, iconKey = iconKey
                 )
             )
         }
@@ -105,6 +136,8 @@ class ManageViewModel(application: Application) : AndroidViewModel(application) 
         dao.deleteTransactionsOfAccount(id)
         dao.deleteSubscriptionsOfAccount(id)
         dao.deleteLoansOfAccount(id)
+        dao.deleteRecurringOfAccount(id)
+        dao.unlinkGoalsFromAccount(id)
         dao.deleteStatementsOfCard(id)
         dao.unlinkCardsFrom(id)
         dao.deleteAccountRow(id)
@@ -130,6 +163,8 @@ class ManageViewModel(application: Application) : AndroidViewModel(application) 
         dao.clearCategoryInSubscriptions(id)
         dao.clearCategoryInLoans(id)
         dao.clearCategoryInBudgets(id)
+        dao.clearCategoryInRecurring(id)
+        dao.clearCategoryInGoals(id)
         dao.deleteCategoryTree(id)
     }
 

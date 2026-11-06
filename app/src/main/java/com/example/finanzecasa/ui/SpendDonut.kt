@@ -2,6 +2,7 @@ package com.example.finanzecasa.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,11 +46,11 @@ private val otherColor = Color(0xFF9DB0A8)
 private const val MAX_SLICES = 5
 
 /** Una fetta della ciambella: le categorie oltre le prime cinque confluiscono in "Altre". */
-internal data class Slice(val name: String, val cents: Long, val color: Color)
+internal data class Slice(val name: String, val cents: Long, val color: Color, val categoryId: Long? = null)
 
 internal fun buildSlices(spend: List<CategorySpend>): List<Slice> {
     val sorted = spend.filter { it.totalCents > 0 }.sortedByDescending { it.totalCents }
-    val top = sorted.take(MAX_SLICES).mapIndexed { i, s -> Slice(s.name, s.totalCents, donutColors[i]) }
+    val top = sorted.take(MAX_SLICES).mapIndexed { i, s -> Slice(s.name, s.totalCents, donutColors[i], s.categoryId) }
     val rest = sorted.drop(MAX_SLICES).sumOf { it.totalCents }
     return if (rest > 0) top + Slice("Altre", rest, otherColor) else top
 }
@@ -62,7 +63,8 @@ fun SpendDonutCard(
     month: YearMonth,
     spend: List<CategorySpend>,
     onShiftMonth: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onCategoryClick: ((categoryId: Long, name: String) -> Unit)? = null
 ) {
     val slices = buildSlices(spend)
     val total = slices.sumOf { it.cents }
@@ -102,8 +104,14 @@ fun SpendDonutCard(
         }
 
         slices.forEach { s ->
+            val catId = s.categoryId
+            val rowModifier = if (onCategoryClick != null && catId != null) {
+                Modifier.fillMaxWidth().clickable { onCategoryClick(catId, s.name) }
+            } else {
+                Modifier.fillMaxWidth()
+            }
             Row(
-                Modifier.fillMaxWidth().padding(vertical = 5.dp),
+                rowModifier.padding(vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
@@ -121,6 +129,14 @@ fun SpendDonutCard(
                     textAlign = TextAlign.End
                 )
             }
+        }
+        if (onCategoryClick != null) {
+            Text(
+                "Tocca una categoria per vedere le sotto-categorie.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp)
+            )
         }
         Spacer(Modifier.height(2.dp))
     }

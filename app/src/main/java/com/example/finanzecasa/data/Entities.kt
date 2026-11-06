@@ -23,7 +23,12 @@ data class AccountEntity(
     val cycleStartDay: Int? = null,          // giorno di inizio periodo (es. 12)
     val debitDay: Int? = null,               // giorno di addebito sul conto (es. 24)
     val linkedAccountId: Long? = null,       // conto corrente collegato
-    val autoDebitSinceEpochDay: Long? = null // l'addebito automatico parte da questo giorno
+    val autoDebitSinceEpochDay: Long? = null, // l'addebito automatico parte da questo giorno
+    // Aggiunti nella v4:
+    val sortOrder: Int = 0,                  // posizione scelta dall'utente (0 = ordine automatico)
+    val hidden: Boolean = false,             // nascosto dalla schermata principale (il saldo conta ancora)
+    val colorKey: String? = null,            // colore scelto; null = colore del tipo di account
+    val iconKey: String? = null              // icona scelta; null = icona del tipo di account
 )
 
 /** Categoria e sotto-categoria nella stessa tabella: la sotto-categoria ha parentId valorizzato. */
@@ -53,7 +58,10 @@ data class TransactionEntity(
     val amountCents: Long,                   // negativo = spesa, positivo = entrata
     val dateMillis: Long,
     val kind: TxKind = TxKind.NORMAL,
-    val transferGroupId: String? = null      // lega le due gambe di un trasferimento
+    val transferGroupId: String? = null,     // lega le due gambe di un trasferimento
+    // Aggiunti nella v4:
+    val tags: String = "",                   // etichette separate da virgola (es. "vacanza,regalo")
+    val receiptPath: String? = null          // nome del file della foto dello scontrino (cartella receipts/)
 )
 
 @Entity(tableName = "subscriptions")
@@ -114,4 +122,34 @@ data class BudgetEntity(
 data class BudgetCategoryEntity(
     val budgetId: Long,
     val categoryId: Long
+)
+
+/** Transazione che si ripete (stipendio, affitto, bollette...). L'importo ha il segno: positivo = entrata. */
+@Entity(tableName = "recurring_transactions")
+data class RecurringEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val title: String,
+    val amountCents: Long,
+    val cadence: Cadence,
+    val anchorDay: Int,
+    val nextDueEpochDay: Long,
+    val accountId: Long,
+    val categoryId: Long? = null,
+    val active: Boolean = true
+)
+
+/**
+ * Obiettivo di risparmio. L'avanzamento è la somma di: importo versato a mano, saldo dell'account collegato
+ * e movimenti netti della categoria collegata dalla data di creazione.
+ */
+@Entity(tableName = "savings_goals")
+data class GoalEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val targetCents: Long,
+    val accountId: Long? = null,
+    val categoryId: Long? = null,
+    val manualCents: Long = 0,
+    val deadlineEpochDay: Long? = null,
+    val createdEpochDay: Long
 )

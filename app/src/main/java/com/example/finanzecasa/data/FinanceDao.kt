@@ -77,10 +77,12 @@ interface FinanceDao {
 
     // --- Schermata principale
     @Query(
-        """SELECT a.id AS id, a.name AS name, a.type AS type, a.initialBalanceCents + COALESCE(SUM(t.amountCents), 0) AS balanceCents
+        """SELECT a.id AS id, a.name AS name, a.type AS type, a.initialBalanceCents + COALESCE(SUM(t.amountCents), 0) AS balanceCents,
+                  a.colorKey AS colorKey, a.iconKey AS iconKey, a.hidden AS hidden
            FROM accounts a LEFT JOIN transactions t ON t.accountId = a.id AND t.dateMillis < :toMillis
            GROUP BY a.id
-           ORDER BY CASE a.type WHEN 'BANK' THEN 0 WHEN 'CASH' THEN 1 ELSE 2 END, a.name"""
+           ORDER BY CASE WHEN a.sortOrder > 0 THEN 0 ELSE 1 END, a.sortOrder,
+                    CASE a.type WHEN 'BANK' THEN 0 WHEN 'CASH' THEN 1 ELSE 2 END, a.name"""
     )
     fun observeBalances(toMillis: Long): Flow<List<AccountBalance>>
 
@@ -104,7 +106,8 @@ interface FinanceDao {
                   (SELECT a2.name FROM transactions t2 JOIN accounts a2 ON a2.id = t2.accountId
                    WHERE t2.transferGroupId = t.transferGroupId AND t2.id <> t.id LIMIT 1) AS counterpartName,
                   c.name AS categoryName, c.icon AS categoryIcon,
-                  p.name AS parentCategoryName, p.icon AS parentCategoryIcon
+                  p.name AS parentCategoryName, p.icon AS parentCategoryIcon,
+                  t.tags AS tags, t.receiptPath AS receiptPath
            FROM transactions t
            JOIN accounts a ON a.id = t.accountId
            LEFT JOIN categories c ON c.id = t.categoryId
@@ -187,7 +190,8 @@ interface FinanceDao {
                   (SELECT a2.name FROM transactions t2 JOIN accounts a2 ON a2.id = t2.accountId
                    WHERE t2.transferGroupId = t.transferGroupId AND t2.id <> t.id LIMIT 1) AS counterpartName,
                   c.name AS categoryName, c.icon AS categoryIcon,
-                  p.name AS parentCategoryName, p.icon AS parentCategoryIcon
+                  p.name AS parentCategoryName, p.icon AS parentCategoryIcon,
+                  t.tags AS tags, t.receiptPath AS receiptPath
            FROM transactions t
            JOIN accounts a ON a.id = t.accountId
            LEFT JOIN categories c ON c.id = t.categoryId
@@ -197,7 +201,8 @@ interface FinanceDao {
                    SELECT 1 FROM transactions t3
                    WHERE t3.transferGroupId = t.transferGroupId AND t3.accountId = :accountId))
              AND (:query = '' OR t.title LIKE '%' || :query || '%' OR t.note LIKE '%' || :query || '%'
-                  OR c.name LIKE '%' || :query || '%' OR p.name LIKE '%' || :query || '%')
+                  OR c.name LIKE '%' || :query || '%' OR p.name LIKE '%' || :query || '%'
+                  OR t.tags LIKE '%' || :query || '%')
              AND (:fromMillis IS NULL OR t.dateMillis >= :fromMillis)
              AND (:toMillis IS NULL OR t.dateMillis < :toMillis)
            ORDER BY t.dateMillis DESC, t.id DESC
@@ -323,7 +328,8 @@ interface FinanceDao {
     @Query(
         """SELECT COALESCE(p.name, c.name, 'Senza categoria') AS name,
                   CASE WHEN p.id IS NOT NULL THEN p.icon ELSE c.icon END AS icon,
-                  SUM(-t.amountCents) AS totalCents
+                  SUM(-t.amountCents) AS totalCents,
+                  COALESCE(p.id, c.id) AS categoryId
            FROM transactions t
            LEFT JOIN categories c ON c.id = t.categoryId
            LEFT JOIN categories p ON p.id = c.parentId
@@ -347,4 +353,136 @@ interface FinanceDao {
                  WHERE bc2.budgetId = :budgetId)"""
     )
     fun observeBudgetSpentPoints(budgetId: Long, fromMillis: Long, toMillis: Long): Flow<List<TxPoint>>
+
+    // --- Ordine, visibilità e personalizzazione degli account
+    @Query("SELECT COALESCE(MAX(sortOrder), 0) FROM accounts")
+    suspend fun maxAccountSortOrder(): Int
+
+    @Query("UPDATE accounts SET sortOrder = :order WHERE id = :id")
+    suspend fun setAccountSortOrder(id: Long, order: Int)
+
+    @Query("UPDATE accounts SET hidden = :hidden WHERE id = :id")
+    suspend fun setAccountHidden(id: Long, hidden: Boolean)
+
+    // --- Transazioni ricorrenti
+    @Query("SELECT * FROM recurring_transactions ORDER BY title")
+    fun observeRecurring(): Flow<List<RecurringEntity>>
+
+    @Query("SELECT * FROM recurring_transactions WHERE id = :id")
+    suspend fun recurringById(id: Long): RecurringEntity?
+
+    @Insert
+    suspend fun insertRecurring(r: RecurringEntity): Long
+
+    @Update
+    suspend fun updateRecurring(r: RecurringEntity)
+
+    @Query("DELETE FROM recurring_transactions WHERE id = :id")
+    suspend fun deleteRecurring(id: Long)
+
+    @Query("SELECT * FROM recurring_transactions WHERE active = 1 AND nextDueEpochDay <= :epochDay")
+    suspend fun dueRecurring(epochDay: Long): List<RecurringEntity>
+
+    @Query("SELECT * FROM recurring_transactions WHERE active = 1")
+    suspend fun activeRecurring(): List<RecurringEntity>
+
+    @Query("DELETE FROM recurring_transactions WHERE accountId = :accountId")
+    suspend fun deleteRecurringOfAccount(accountId: Long)
+
+    @Query("UPDATE recurring_transactions SET categoryId = NULL WHERE categoryId = :id OR categoryId IN (SELECT id FROM categories WHERE parentId = :id)")
+    suspend fun clearCategoryInRecurring(id: Long)
+
+    // --- Obiettivi di risparmio
+    @Query("SELECT * FROM savings_goals ORDER BY name")
+    fun observeGoals(): Flow<List<GoalEntity>>
+
+    @Query("SELECT * FROM savings_goals WHERE id = :id")
+    suspend fun goalById(id: Long): GoalEntity?
+
+    @Insert
+    suspend fun insertGoal(g: GoalEntity): Long
+
+    @Update
+    suspend fun updateGoal(g: GoalEntity)
+
+    @Query("DELETE FROM savings_goals WHERE id = :id")
+    suspend fun deleteGoal(id: Long)
+
+    @Query("UPDATE savings_goals SET accountId = NULL WHERE accountId = :accountId")
+    suspend fun unlinkGoalsFromAccount(accountId: Long)
+
+    @Query("UPDATE savings_goals SET categoryId = NULL WHERE categoryId = :id OR categoryId IN (SELECT id FROM categories WHERE parentId = :id)")
+    suspend fun clearCategoryInGoals(id: Long)
+
+    /** Movimento netto (entrate meno uscite) di una categoria e delle sue sotto-categorie in un periodo. */
+    @Query(
+        """SELECT COALESCE(SUM(t.amountCents), 0) FROM transactions t
+           WHERE t.kind = 'NORMAL' AND t.dateMillis >= :fromMillis AND t.dateMillis < :toMillis
+             AND (t.categoryId = :categoryId OR t.categoryId IN (SELECT id FROM categories WHERE parentId = :categoryId))"""
+    )
+    fun observeCategoryNet(categoryId: Long, fromMillis: Long, toMillis: Long): Flow<Long>
+
+    // --- Tag
+    @Query("SELECT tags FROM transactions WHERE tags <> ''")
+    fun observeTagColumns(): Flow<List<String>>
+
+    // --- Report
+    /** Entrate normali del periodo raggruppate per categoria principale. */
+    @Query(
+        """SELECT COALESCE(p.name, c.name, 'Senza categoria') AS name,
+                  CASE WHEN p.id IS NOT NULL THEN p.icon ELSE c.icon END AS icon,
+                  SUM(t.amountCents) AS totalCents,
+                  COALESCE(p.id, c.id) AS categoryId
+           FROM transactions t
+           LEFT JOIN categories c ON c.id = t.categoryId
+           LEFT JOIN categories p ON p.id = c.parentId
+           WHERE t.kind = 'NORMAL' AND t.amountCents > 0 AND t.dateMillis >= :fromMillis AND t.dateMillis < :toMillis
+           GROUP BY COALESCE(p.id, c.id)
+           ORDER BY totalCents DESC"""
+    )
+    fun observeCategoryIncome(fromMillis: Long, toMillis: Long): Flow<List<CategorySpend>>
+
+    /**
+     * Dettaglio per sotto-categoria di una categoria principale. [income] = 1 per le entrate, 0 per le uscite.
+     * Le transazioni assegnate direttamente alla principale compaiono come "Senza sotto-categoria".
+     */
+    @Query(
+        """SELECT CASE WHEN c.id = :parentId THEN 'Senza sotto-categoria' ELSE c.name END AS name,
+                  c.icon AS icon,
+                  SUM(ABS(t.amountCents)) AS totalCents,
+                  c.id AS categoryId
+           FROM transactions t
+           JOIN categories c ON c.id = t.categoryId
+           WHERE t.kind = 'NORMAL'
+             AND ((:income = 1 AND t.amountCents > 0) OR (:income = 0 AND t.amountCents < 0))
+             AND t.dateMillis >= :fromMillis AND t.dateMillis < :toMillis
+             AND (c.id = :parentId OR c.parentId = :parentId)
+           GROUP BY c.id
+           ORDER BY totalCents DESC"""
+    )
+    fun observeSubcategoryTotals(parentId: Long, income: Int, fromMillis: Long, toMillis: Long): Flow<List<CategorySpend>>
+
+    // --- Utilità per notifiche, widget e backup (letture immediate)
+    @Query("SELECT * FROM loans WHERE remainingInstallments > 0")
+    suspend fun activeLoans(): List<LoanEntity>
+
+    @Query("SELECT * FROM subscriptions WHERE active = 1")
+    suspend fun activeSubscriptions(): List<SubscriptionEntity>
+
+    @Query("SELECT * FROM budgets ORDER BY name")
+    suspend fun budgetsOnce(): List<BudgetEntity>
+
+    @Query(
+        """SELECT * FROM accounts
+           ORDER BY CASE WHEN sortOrder > 0 THEN 0 ELSE 1 END, sortOrder,
+                    CASE type WHEN 'BANK' THEN 0 WHEN 'CASH' THEN 1 ELSE 2 END, name"""
+    )
+    fun observeAccountsOrdered(): Flow<List<AccountEntity>>
+
+    @Query(
+        """SELECT * FROM accounts
+           ORDER BY CASE WHEN sortOrder > 0 THEN 0 ELSE 1 END, sortOrder,
+                    CASE type WHEN 'BANK' THEN 0 WHEN 'CASH' THEN 1 ELSE 2 END, name"""
+    )
+    suspend fun accountsOrdered(): List<AccountEntity>
 }

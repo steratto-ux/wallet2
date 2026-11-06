@@ -21,6 +21,7 @@ class DueItemsProcessor(private val db: AppDatabase) {
         processCards(today)
         processSubscriptions(today)
         processLoans(today)
+        processRecurring(today)
     }
 
     private suspend fun processCards(today: LocalDate) {
@@ -104,6 +105,27 @@ class DueItemsProcessor(private val db: AppDatabase) {
                 next = DateUtil.clamp(YearMonth.from(next).plusMonths(1), l.dueDay)
             }
             dao.updateLoan(l.copy(nextDueEpochDay = next.toEpochDay(), remainingInstallments = remaining))
+        }
+    }
+
+    /** Transazioni ricorrenti (stipendio, affitto, bollette...): importo con segno, entrata o uscita. */
+    private suspend fun processRecurring(today: LocalDate) {
+        for (r in dao.dueRecurring(today.toEpochDay())) {
+            var next = LocalDate.ofEpochDay(r.nextDueEpochDay)
+            while (!next.isAfter(today)) {
+                dao.insertTransaction(
+                    TransactionEntity(
+                        accountId = r.accountId, categoryId = r.categoryId, title = r.title,
+                        amountCents = r.amountCents, dateMillis = next.atStartOfDay().toMillis()
+                    )
+                )
+                val ym = YearMonth.from(next)
+                next = when (r.cadence) {
+                    Cadence.MONTHLY -> DateUtil.clamp(ym.plusMonths(1), r.anchorDay)
+                    Cadence.YEARLY -> DateUtil.clamp(ym.plusYears(1), r.anchorDay)
+                }
+            }
+            dao.updateRecurring(r.copy(nextDueEpochDay = next.toEpochDay()))
         }
     }
 }

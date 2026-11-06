@@ -1,6 +1,7 @@
 package com.example.finanzecasa.ui
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.withTransaction
@@ -9,7 +10,11 @@ import com.example.finanzecasa.data.AccountEntity
 import com.example.finanzecasa.data.CategoryEntity
 import com.example.finanzecasa.data.TransactionEntity
 import com.example.finanzecasa.data.TxKind
+import com.example.finanzecasa.domain.Tags
 import com.example.finanzecasa.domain.toMillis
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -30,7 +35,9 @@ data class LoadedTransaction(
     val toAccountId: Long?,
     val categoryId: Long?,
     val dateTime: LocalDateTime,
-    val note: String = ""
+    val note: String = "",
+    val tags: String = "",
+    val receiptPath: String? = null
 )
 
 class NewTransactionViewModel(application: Application) : AndroidViewModel(application) {
@@ -38,10 +45,21 @@ class NewTransactionViewModel(application: Application) : AndroidViewModel(appli
     private val dao = app.db.dao()
 
     val accounts: StateFlow<List<AccountEntity>> =
-        dao.observeAccounts().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        dao.observeAccountsOrdered().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val categories: StateFlow<List<CategoryEntity>> =
         dao.observeCategories().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Tag già usati, per proporli mentre si scrive. */
+    val knownTags: StateFlow<List<String>> =
+        dao.observeTagColumns().map { Tags.distinct(it) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Salva la foto scelta dalla galleria o scattata; restituisce il nome del file oppure null. */
+    suspend fun importReceiptPhoto(uri: Uri): String? =
+        withContext(Dispatchers.IO) { importReceipt(getApplication<Application>(), uri) }
+
+    fun discardReceipt(name: String?) = deleteReceiptFile(getApplication<Application>(), name)
 
     /** Crea la categoria (o sotto-categoria se parentId != null) e restituisce l'id; riusa quella esistente. */
     suspend fun createCategory(name: String, parentId: Long?, icon: String?): Long =
@@ -60,20 +78,23 @@ class NewTransactionViewModel(application: Application) : AndroidViewModel(appli
         toAccountId: Long?,         // solo trasferimenti
         categoryId: Long?,          // ignorata nei trasferimenti
         dateTime: LocalDateTime,
-        note: String = ""           // ignorata nei trasferimenti (hanno la nota "Saldo trasferito A → B")
+        note: String = "",          // ignorata nei trasferimenti (hanno la nota "Saldo trasferito A → B")
+        tags: String = "",          // ignorati nei trasferimenti
+        receiptPath: String? = null // ignorata nei trasferimenti
     ) {
+        val cleanTags = Tags.normalize(tags)
         val millis = dateTime.toMillis()
         when (type) {
             TxType.EXPENSE -> dao.insertTransaction(
                 TransactionEntity(
                     accountId = accountId, categoryId = categoryId, title = title, note = note,
-                    amountCents = -amountCents, dateMillis = millis
+                    amountCents = -amountCents, dateMillis = millis, tags = cleanTags, receiptPath = receiptPath
                 )
             )
             TxType.INCOME -> dao.insertTransaction(
                 TransactionEntity(
                     accountId = accountId, categoryId = categoryId, title = title, note = note,
-                    amountCents = amountCents, dateMillis = millis
+                    amountCents = amountCents, dateMillis = millis, tags = cleanTags, receiptPath = receiptPath
                 )
             )
             TxType.TRANSFER -> app.db.withTransaction {
@@ -113,23 +134,37 @@ class NewTransactionViewModel(application: Application) : AndroidViewModel(appli
         }
         return LoadedTransaction(
             if (t.amountCents < 0) TxType.EXPENSE else TxType.INCOME,
-            t.title, abs(t.amountCents), t.accountId, null, t.categoryId, dt, t.note
+            t.title, abs(t.amountCents), t.accountId, null, t.categoryId, dt, t.note, t.tags, t.receiptPath
         )
     }
 
-    /** Elimina la transazione; per un trasferimento elimina entrambe le gambe. */
-    suspend fun delete(id: Long) = app.db.withTransaction {
-        val t = dao.transactionById(id) ?: return@withTransaction
+    /** Elimina le righe dal database (per un trasferimento entrambe le gambe). Restituisce la foto collegata. */
+    private suspend fun deleteRows(id: Long): String? {
+        val t = dao.transactionById(id) ?: return null
         val group = t.transferGroupId
         if (group != null) dao.deleteTransferGroup(group) else dao.deleteTransaction(id)
+        return t.receiptPath
+    }
+
+    /** Elimina la transazione e la foto dello scontrino; per un trasferimento elimina entrambe le gambe. */
+    suspend fun delete(id: Long) {
+        val receipt = app.db.withTransaction { deleteRows(id) }
+        deleteReceiptFile(app, receipt)
     }
 
     /** Modifica = elimina la vecchia e salva la nuova (vale anche se cambia il tipo). */
     suspend fun update(
         id: Long, type: TxType, title: String, amountCents: Long,
-        accountId: Long, toAccountId: Long?, categoryId: Long?, dateTime: LocalDateTime, note: String = ""
-    ) = app.db.withTransaction {
-        delete(id)
-        save(type, title, amountCents, accountId, toAccountId, categoryId, dateTime, note)
+        accountId: Long, toAccountId: Long?, categoryId: Long?, dateTime: LocalDateTime, note: String = "",
+        tags: String = "", receiptPath: String? = null
+    ) {
+        val oldReceipt = app.db.withTransaction {
+            val old = deleteRows(id)
+            save(type, title, amountCents, accountId, toAccountId, categoryId, dateTime, note, tags, receiptPath)
+            old
+        }
+        // La vecchia foto va tolta solo se non è più usata (sostituita, rimossa o tipo cambiato in trasferimento)
+        val stillUsed = type != TxType.TRANSFER && receiptPath == oldReceipt
+        if (!stillUsed) deleteReceiptFile(app, oldReceipt)
     }
 }

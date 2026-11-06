@@ -38,6 +38,8 @@ fun AccountFormScreen(accountId: Long?, onClose: () -> Unit, vm: ManageViewModel
     var cycleStartText by rememberSaveable { mutableStateOf("") }
     var debitDayText by rememberSaveable { mutableStateOf("") }
     var linkedId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var colorKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var iconKey by rememberSaveable { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var currentBalance by remember { mutableStateOf<Long?>(null) }
     var showCorrection by remember { mutableStateOf(false) }
@@ -56,6 +58,8 @@ fun AccountFormScreen(accountId: Long?, onClose: () -> Unit, vm: ManageViewModel
                 cycleStartText = a.cycleStartDay?.toString().orEmpty()
                 debitDayText = a.debitDay?.toString().orEmpty()
                 linkedId = a.linkedAccountId
+                colorKey = a.colorKey
+                iconKey = a.iconKey
             }
             loaded = true
         }
@@ -78,6 +82,8 @@ fun AccountFormScreen(accountId: Long?, onClose: () -> Unit, vm: ManageViewModel
                 "Il valore iniziale entra nel saldo dell'account e nel patrimonio netto. Può essere negativo.",
                 style = MaterialTheme.typography.bodySmall
             )
+
+            AccountStylePicker(type, colorKey, { colorKey = it }, iconKey, { iconKey = it })
 
             if (type == AccountType.CREDIT_CARD) {
                 Text("Addebito automatico", style = MaterialTheme.typography.titleSmall)
@@ -131,7 +137,8 @@ fun AccountFormScreen(accountId: Long?, onClose: () -> Unit, vm: ManageViewModel
                         else -> scope.launch {
                             val problem = vm.saveAccount(
                                 accountId, name.trim(), type, initial,
-                                cycle.takeIf { wantsAuto }, debit.takeIf { wantsAuto }, linkedId.takeIf { wantsAuto }
+                                cycle.takeIf { wantsAuto }, debit.takeIf { wantsAuto }, linkedId.takeIf { wantsAuto },
+                                colorKey, iconKey
                             )
                             if (problem != null) error = problem else onClose()
                         }

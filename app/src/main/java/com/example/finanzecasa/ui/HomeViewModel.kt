@@ -10,6 +10,7 @@ import com.example.finanzecasa.data.TransactionRow
 import com.example.finanzecasa.domain.BalancePoint
 import com.example.finanzecasa.domain.BalanceSeries
 import com.example.finanzecasa.domain.ChartRange
+import com.example.finanzecasa.domain.NetWorthMath
 import com.example.finanzecasa.domain.toMillis
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +29,7 @@ data class HomeState(
     val now: LocalDateTime = LocalDateTime.now(),
     val accounts: List<AccountBalance> = emptyList(),
     val netWorthCents: Long = 0,
+    val loanDebtCents: Long = 0, // debiti sottratti dal patrimonio netto (0 se l'opzione è spenta)
     val monthExpensesCents: Long = 0,
     val monthIncomeCents: Long = 0,
     val recent: List<TransactionRow> = emptyList(),
@@ -42,6 +44,7 @@ private data class HomeInputs(val now: LocalDateTime, val range: ChartRange, val
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val dao = (application as FinanceApp).db.dao()
+    private val includeLoans = AppSettings(application).includeLoansFlow()
 
     /** Intervallo scelto per il grafico del saldo. */
     private val range = MutableStateFlow(ChartRange.MONTH)
@@ -75,13 +78,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     dao.observeBalances(upTo),
                     dao.observeExpenses(monthStart, upTo),
                     dao.observeIncome(monthStart, upTo),
-                    dao.observeRecent(upTo, 15)
-                ) { balances, expenses, income, recent ->
+                    dao.observeRecent(upTo, 15),
+                    combine(dao.observeLoans(), includeLoans) { loans, include ->
+                        if (include) NetWorthMath.loanDebtCents(loans) else 0L
+                    }
+                ) { balances, expenses, income, recent, debt ->
                     HomeState(
                         loaded = true,
                         now = now,
                         accounts = balances,
-                        netWorthCents = balances.sumOf { it.balanceCents },
+                        netWorthCents = balances.sumOf { it.balanceCents } - debt,
+                        loanDebtCents = debt,
                         monthExpensesCents = expenses,
                         monthIncomeCents = income,
                         recent = recent,

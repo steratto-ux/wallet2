@@ -1,0 +1,59 @@
+package com.example.finanzecasa.ui
+
+import android.content.Context
+import android.content.SharedPreferences
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+
+/**
+ * Preferenze dell'app salvate sul telefono. Le chiavi non cambiano mai tra una versione e l'altra:
+ * quelle nuove hanno sempre un valore predefinito, così le impostazioni esistenti restano valide.
+ */
+class AppSettings(context: Context) {
+    private val prefs: SharedPreferences = context.applicationContext.getSharedPreferences("settings", Context.MODE_PRIVATE)
+
+    fun themeMode(): ThemeMode =
+        runCatching { ThemeMode.valueOf(prefs.getString("theme", ThemeMode.SYSTEM.name) ?: "") }
+            .getOrDefault(ThemeMode.SYSTEM)
+
+    fun setThemeMode(mode: ThemeMode) {
+        prefs.edit().putString("theme", mode.name).apply()
+    }
+
+    // --- Patrimonio netto
+    fun includeLoans(): Boolean = prefs.getBoolean("include_loans", false)
+    fun setIncludeLoans(on: Boolean) { prefs.edit().putBoolean("include_loans", on).apply() }
+
+    /** Emette il valore attuale e poi ogni cambiamento (la schermata principale si aggiorna da sola). */
+    fun includeLoansFlow(): Flow<Boolean> = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "include_loans") trySend(includeLoans())
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        trySend(includeLoans())
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+
+    // --- Notifiche
+    fun notificationsEnabled(): Boolean = prefs.getBoolean("notifications", false)
+    fun setNotificationsEnabled(on: Boolean) { prefs.edit().putBoolean("notifications", on).apply() }
+
+    /** Avvisi già inviati (chiavi come "budget-3-2026-11-80"): ogni avviso parte una volta sola. */
+    fun sentAlerts(): Set<String> = prefs.getStringSet("sent_alerts", emptySet()) ?: emptySet()
+    fun setSentAlerts(keys: Set<String>) { prefs.edit().putStringSet("sent_alerts", keys.toSet()).apply() }
+
+    // --- Blocco app
+    fun lockEnabled(): Boolean = prefs.getBoolean("lock", false)
+    fun setLockEnabled(on: Boolean) { prefs.edit().putBoolean("lock", on).apply() }
+
+    // --- Backup automatico
+    fun autoBackupEnabled(): Boolean = prefs.getBoolean("auto_backup", true)
+    fun setAutoBackupEnabled(on: Boolean) { prefs.edit().putBoolean("auto_backup", on).apply() }
+
+    fun backupFolder(): String? = prefs.getString("backup_folder", null)
+    fun setBackupFolder(uri: String?) { prefs.edit().putString("backup_folder", uri).apply() }
+
+    fun lastAutoBackupMillis(): Long = prefs.getLong("last_auto_backup", 0L)
+    fun setLastAutoBackupMillis(v: Long) { prefs.edit().putLong("last_auto_backup", v).apply() }
+}

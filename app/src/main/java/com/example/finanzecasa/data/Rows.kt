@@ -5,7 +5,10 @@ data class AccountBalance(
     val id: Long,
     val name: String,
     val type: AccountType,
-    val balanceCents: Long
+    val balanceCents: Long,
+    val colorKey: String?,
+    val iconKey: String?,
+    val hidden: Boolean
 )
 
 /** Riga dell'elenco transazioni. I trasferimenti compaiono una sola volta (gamba in uscita). */
@@ -20,7 +23,9 @@ data class TransactionRow(
     val categoryName: String?,
     val categoryIcon: String?,
     val parentCategoryName: String?,
-    val parentCategoryIcon: String?
+    val parentCategoryIcon: String?,
+    val tags: String,
+    val receiptPath: String?
 )
 
 /** Movimento minimo (data e importo) usato per costruire la serie del saldo. */
@@ -51,5 +56,6 @@ data class ExportRow(
 data class CategorySpend(
     val name: String,
     val icon: String?,
-    val totalCents: Long
+    val totalCents: Long,
+    val categoryId: Long?
 )

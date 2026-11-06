@@ -26,6 +26,10 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Autorenew
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material.icons.outlined.EventRepeat
+import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Receipt
+import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.outlined.CreditCard
@@ -40,6 +44,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,6 +60,9 @@ import com.example.finanzecasa.data.AccountType
 import com.example.finanzecasa.data.TransactionRow
 import com.example.finanzecasa.data.TxKind
 import com.example.finanzecasa.domain.IconRules
+import com.example.finanzecasa.domain.Tags
+import com.example.finanzecasa.domain.toMillis
+import java.time.YearMonth
 import kotlin.math.abs
 
 @Composable
@@ -68,6 +78,7 @@ fun HomeScreen(
     vm: HomeViewModel = viewModel()
 ) {
     val state by vm.state.collectAsState()
+    var drill by remember { mutableStateOf<Pair<Long, String>?>(null) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -94,18 +105,26 @@ fun HomeScreen(
                 }
             }
             item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    NavIconButton(Icons.AutoMirrored.Outlined.FormatListBulleted, "Categorie", { onOpen("categories") }, Modifier.weight(1f))
-                    NavIconButton(Icons.Outlined.Speed, "Budget", { onOpen("budgets") }, Modifier.weight(1f))
-                    NavIconButton(Icons.Outlined.Autorenew, "Abbonamenti", { onOpen("subscriptions") }, Modifier.weight(1f))
-                    NavIconButton(Icons.Outlined.AccountBalance, "Prestiti", { onOpen("loans") }, Modifier.weight(1f))
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        NavIconButton(Icons.AutoMirrored.Outlined.FormatListBulleted, "Categorie", { onOpen("categories") }, Modifier.weight(1f))
+                        NavIconButton(Icons.Outlined.Speed, "Budget", { onOpen("budgets") }, Modifier.weight(1f))
+                        NavIconButton(Icons.Outlined.Autorenew, "Abbonamenti", { onOpen("subscriptions") }, Modifier.weight(1f))
+                        NavIconButton(Icons.Outlined.AccountBalance, "Prestiti", { onOpen("loans") }, Modifier.weight(1f))
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        NavIconButton(Icons.Outlined.EventRepeat, "Ricorrenti", { onOpen("recurring") }, Modifier.weight(1f))
+                        NavIconButton(Icons.Outlined.Flag, "Obiettivi", { onOpen("goals") }, Modifier.weight(1f))
+                        NavIconButton(Icons.Outlined.BarChart, "Report", { onOpen("reports") }, Modifier.weight(1f))
+                        NavIconButton(Icons.Outlined.Receipt, "Transazioni", { onOpen("transactions") }, Modifier.weight(1f))
+                    }
                 }
             }
 
             // 1. Account in una riga che scorre in orizzontale
             item {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(state.accounts, key = { it.id }) { a ->
+                    items(state.accounts.filter { !it.hidden }, key = { it.id }) { a ->
                         AccountBox(a, Modifier.width(158.dp).height(112.dp), onClick = { onEditAccount(a.id) })
                     }
                     item {
@@ -144,7 +163,8 @@ fun HomeScreen(
                 SpendDonutCard(
                     month = state.spendMonth,
                     spend = state.categorySpend,
-                    onShiftMonth = vm::shiftSpendMonth
+                    onShiftMonth = vm::shiftSpendMonth,
+                    onCategoryClick = { id, name -> drill = id to name }
                 )
             }
 
@@ -154,7 +174,8 @@ fun HomeScreen(
                     netWorthCents = state.netWorthCents,
                     points = state.chart,
                     range = state.range,
-                    onRangeChange = vm::selectRange
+                    onRangeChange = vm::selectRange,
+                    debtCents = state.loanDebtCents
                 )
             }
 
@@ -176,16 +197,19 @@ fun HomeScreen(
             }
         }
     }
+
+    drill?.let { (id, name) ->
+        val month: YearMonth = state.spendMonth
+        val from = month.atDay(1).atStartOfDay().toMillis()
+        val to = minOf(month.plusMonths(1).atDay(1).atStartOfDay().toMillis(), System.currentTimeMillis() + 60_000)
+        SubcategoryDialog(id, name, income = false, fromMillis = from, toMillis = to, onDismiss = { drill = null })
+    }
 }
 
 @Composable
 private fun AccountBox(a: AccountBalance, modifier: Modifier, onClick: () -> Unit) {
-    val tint = accountTint(a.type, LocalDarkTheme.current)
-    val icon = when (a.type) {
-        AccountType.BANK -> Icons.Outlined.AccountBalance
-        AccountType.CASH -> Icons.Outlined.AccountBalanceWallet
-        AccountType.CREDIT_CARD -> Icons.Outlined.CreditCard
-    }
+    val tint = accountTint(a.colorKey, a.type, LocalDarkTheme.current)
+    val icon = accountIcon(a.iconKey, a.type)
     AppCard(modifier, onClick = onClick, padding = 14.dp) {
         Box(
             Modifier.size(34.dp).clip(CircleShape).background(tint.copy(alpha = 0.16f)),
@@ -219,8 +243,10 @@ fun TransactionItem(t: TransactionRow, onClick: (() -> Unit)? = null) {
     val title = t.title.ifBlank {
         category.ifBlank { if (isTransfer) "Trasferimento" else "Senza titolo" }
     }
+    val tagText = Tags.split(t.tags).joinToString(" ") { "#$it" }
     val where = if (isTransfer) "${t.accountName} → ${t.counterpartName ?: "?"}"
-    else listOf(t.accountName, category).filter { it.isNotBlank() }.joinToString(" · ")
+    else listOf(t.accountName, category, tagText, if (t.receiptPath != null) "scontrino" else "")
+        .filter { it.isNotBlank() }.joinToString(" · ")
 
     val color = when {
         isTransfer -> MaterialTheme.colorScheme.onSurfaceVariant

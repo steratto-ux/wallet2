@@ -46,11 +46,12 @@ fun NetWorthCard(
     points: List<BalancePoint>,
     range: ChartRange,
     onRangeChange: (ChartRange) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    debtCents: Long = 0L // debiti dei prestiti già sottratti da netWorthCents (0 = non inclusi)
 ) {
     var selected by remember(points) { mutableStateOf<Int?>(null) }
     val point = selected?.let { points.getOrNull(it) }
-    val shown = point?.cents ?: netWorthCents
+    val shown = point?.let { it.cents - debtCents } ?: netWorthCents
     val delta = if (points.size >= 2) points.last().cents - points.first().cents else 0L
 
     AppCard(modifier.fillMaxWidth()) {
@@ -83,6 +84,14 @@ fun NetWorthCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        }
+
+        if (debtCents > 0) {
+            Text(
+                "Include i debiti dei prestiti: −${formatMoney(debtCents)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
 
         BalanceChart(
