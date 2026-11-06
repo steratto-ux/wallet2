@@ -30,6 +30,7 @@ import androidx.compose.material.icons.outlined.EventRepeat
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Receipt
 import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.outlined.CreditCard
@@ -117,6 +118,10 @@ fun HomeScreen(
                         NavIconButton(Icons.Outlined.Flag, "Obiettivi", { onOpen("goals") }, Modifier.weight(1f))
                         NavIconButton(Icons.Outlined.BarChart, "Report", { onOpen("reports") }, Modifier.weight(1f))
                         NavIconButton(Icons.Outlined.Receipt, "Transazioni", { onOpen("transactions") }, Modifier.weight(1f))
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        NavIconButton(Icons.Outlined.Insights, "Analisi", { onOpen("analysis") }, Modifier.weight(1f))
+                        Spacer(Modifier.weight(3f))
                     }
                 }
             }
@@ -270,9 +275,19 @@ fun TransactionItem(t: TransactionRow, onClick: (() -> Unit)? = null) {
     ) {
         CategoryBadge(iconKey, size = 40.dp)
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // Titolo a sinistra e data a destra: il titolo si accorcia, la data resta sempre visibile
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    title, style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f)
+                )
+                Text(
+                    formatDay(t.dateMillis), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false
+                )
+            }
             Text(
-                "$where · ${formatDay(t.dateMillis)}$scheduled",
+                where + scheduled,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1, overflow = TextOverflow.Ellipsis

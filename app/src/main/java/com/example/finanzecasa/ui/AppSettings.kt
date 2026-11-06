@@ -56,4 +56,8 @@ class AppSettings(context: Context) {
 
     fun lastAutoBackupMillis(): Long = prefs.getLong("last_auto_backup", 0L)
     fun setLastAutoBackupMillis(v: Long) { prefs.edit().putLong("last_auto_backup", v).apply() }
+
+    // --- Analisi: obiettivo di risparmio mensile (0 = non impostato)
+    fun savingsTargetCents(): Long = prefs.getLong("savings_target", 0L)
+    fun setSavingsTargetCents(v: Long) { prefs.edit().putLong("savings_target", v).apply() }
 }

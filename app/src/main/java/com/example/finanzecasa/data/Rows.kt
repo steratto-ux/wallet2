@@ -59,3 +59,18 @@ data class CategorySpend(
     val totalCents: Long,
     val categoryId: Long?
 )
+
+/** Una spesa (importo positivo) con la categoria principale, per le analisi. */
+data class SpendRow(
+    val title: String,
+    val categoryId: Long?,
+    val categoryName: String,
+    val cents: Long,
+    val dateMillis: Long
+)
+
+/** Totale di un mese ("2026-11"). */
+data class MonthTotal(
+    val month: String,
+    val totalCents: Long
+)

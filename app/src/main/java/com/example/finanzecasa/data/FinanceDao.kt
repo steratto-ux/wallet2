@@ -485,4 +485,36 @@ interface FinanceDao {
                     CASE type WHEN 'BANK' THEN 0 WHEN 'CASH' THEN 1 ELSE 2 END, name"""
     )
     suspend fun accountsOrdered(): List<AccountEntity>
+
+    // --- Analisi
+    /** Tutte le uscite normali del periodo, una riga per transazione. */
+    @Query(
+        """SELECT t.title AS title,
+                  COALESCE(p.id, c.id) AS categoryId,
+                  COALESCE(p.name, c.name, 'Senza categoria') AS categoryName,
+                  -t.amountCents AS cents,
+                  t.dateMillis AS dateMillis
+           FROM transactions t
+           LEFT JOIN categories c ON c.id = t.categoryId
+           LEFT JOIN categories p ON p.id = c.parentId
+           WHERE t.kind = 'NORMAL' AND t.amountCents < 0 AND t.dateMillis >= :fromMillis AND t.dateMillis < :toMillis"""
+    )
+    fun observeSpendRows(fromMillis: Long, toMillis: Long): Flow<List<SpendRow>>
+
+    /** Entrate normali del periodo, un totale per mese. */
+    @Query(
+        """SELECT strftime('%Y-%m', t.dateMillis / 1000, 'unixepoch', 'localtime') AS month,
+                  SUM(t.amountCents) AS totalCents
+           FROM transactions t
+           WHERE t.kind = 'NORMAL' AND t.amountCents > 0 AND t.dateMillis >= :fromMillis AND t.dateMillis < :toMillis
+           GROUP BY month"""
+    )
+    fun observeIncomeByMonth(fromMillis: Long, toMillis: Long): Flow<List<MonthTotal>>
+
+    /** Movimento netto delle transazioni normali in un periodo (serve per quelle già programmate nel futuro). */
+    @Query(
+        """SELECT COALESCE(SUM(amountCents), 0) FROM transactions
+           WHERE kind = 'NORMAL' AND dateMillis >= :fromMillis AND dateMillis < :toMillis"""
+    )
+    fun observeNetBetween(fromMillis: Long, toMillis: Long): Flow<Long>
 }

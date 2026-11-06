@@ -41,6 +41,7 @@ import com.example.finanzecasa.alerts.AlertsChecker
 import com.example.finanzecasa.domain.DueItemsProcessor
 import com.example.finanzecasa.ui.AccountFormScreen
 import com.example.finanzecasa.ui.AccountsOrderScreen
+import com.example.finanzecasa.ui.AnalysisScreen
 import com.example.finanzecasa.ui.AppSettings
 import com.example.finanzecasa.ui.AppTheme
 import com.example.finanzecasa.ui.BudgetHistoryScreen
@@ -223,6 +224,7 @@ private fun AppRoot(
         "goals" -> GoalsScreen(onBack = back, onOpenForm = { editId = it; route = "goalForm" })
         "goalForm" -> GoalFormScreen(id = editId, onClose = back)
         "reports" -> ReportsScreen(onBack = back)
+        "analysis" -> AnalysisScreen(onBack = back)
         "budgets" -> BudgetsScreen(
             onBack = back,
             onOpenForm = { editId = it; returnTo = "budgets"; route = "budgetForm" },
