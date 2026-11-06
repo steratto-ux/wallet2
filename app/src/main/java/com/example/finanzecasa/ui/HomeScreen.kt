@@ -1,14 +1,12 @@
 package com.example.finanzecasa.ui
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,16 +17,22 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Autorenew
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -59,13 +63,11 @@ fun HomeScreen(
     onOpen: (String) -> Unit,
     onOpenTransaction: (Long) -> Unit,
     onOpenBudget: (Long) -> Unit,
+    onOpenBudgetHistory: (Long) -> Unit,
+    onOpenSettings: () -> Unit,
     vm: HomeViewModel = viewModel()
 ) {
     val state by vm.state.collectAsState()
-    val status by vm.importStatus.collectAsState()
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) vm.importCsv(uri)
-    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -85,36 +87,34 @@ fun HomeScreen(
         ) {
             item {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Finanze di casa", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
-                    TextButton(onClick = { picker.launch(arrayOf("*/*")) }) {
-                        Text("Importa CSV", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Il mio wallet", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Outlined.Settings, contentDescription = "Configurazione")
                     }
                 }
             }
             item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(
-                        "categories" to "Categorie", "budgets" to "Budget",
-                        "subscriptions" to "Abbonamenti", "loans" to "Prestiti"
-                    ).forEach { (route, label) -> NavChip(label, { onOpen(route) }, Modifier.weight(1f)) }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    NavIconButton(Icons.AutoMirrored.Outlined.FormatListBulleted, "Categorie", { onOpen("categories") }, Modifier.weight(1f))
+                    NavIconButton(Icons.Outlined.Speed, "Budget", { onOpen("budgets") }, Modifier.weight(1f))
+                    NavIconButton(Icons.Outlined.Autorenew, "Abbonamenti", { onOpen("subscriptions") }, Modifier.weight(1f))
+                    NavIconButton(Icons.Outlined.AccountBalance, "Prestiti", { onOpen("loans") }, Modifier.weight(1f))
                 }
             }
-            if (status.isNotEmpty()) item { Text(status, style = MaterialTheme.typography.bodySmall) }
 
-            // 1. Account (due per riga)
+            // 1. Account in una riga che scorre in orizzontale
             item {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Account", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                    TextButton(onClick = onNewAccount) { Text("+ Nuovo account") }
-                }
-            }
-            if (state.loaded && state.accounts.isEmpty()) {
-                item { Text("Nessun account: creane uno o importa un CSV.") }
-            }
-            items(state.accounts.chunked(2)) { pair ->
-                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    pair.forEach { AccountBox(it, Modifier.weight(1f).fillMaxHeight(), onClick = { onEditAccount(it.id) }) }
-                    if (pair.size == 1) Spacer(Modifier.weight(1f))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(state.accounts, key = { it.id }) { a ->
+                        AccountBox(a, Modifier.width(158.dp).height(112.dp), onClick = { onEditAccount(a.id) })
+                    }
+                    item {
+                        AppCard(Modifier.width(110.dp).height(112.dp), onClick = onNewAccount, padding = 14.dp) {
+                            Icon(Icons.Outlined.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.height(10.dp))
+                            Text("Nuovo account", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
                 }
             }
 
@@ -135,11 +135,20 @@ fun HomeScreen(
                     }
                 }
                 items(state.budgets, key = { "budget-${it.id}" }) { b ->
-                    BudgetCard(b, state.now, onClick = { onOpenBudget(b.id) })
+                    BudgetCard(b, state.now, onHistory = { onOpenBudgetHistory(b.id) }, onClick = { onOpenBudget(b.id) })
                 }
             }
 
-            // 4. Patrimonio netto con andamento del saldo
+            // 4. Spese per categoria (ciambella)
+            item {
+                SpendDonutCard(
+                    month = state.spendMonth,
+                    spend = state.categorySpend,
+                    onShiftMonth = vm::shiftSpendMonth
+                )
+            }
+
+            // 5. Patrimonio netto con andamento del saldo
             item {
                 NetWorthCard(
                     netWorthCents = state.netWorthCents,
@@ -149,7 +158,7 @@ fun HomeScreen(
                 )
             }
 
-            // 5. Ultime transazioni
+            // 6. Ultime transazioni
             item {
                 AppCard(Modifier.fillMaxWidth()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -171,7 +180,7 @@ fun HomeScreen(
 
 @Composable
 private fun AccountBox(a: AccountBalance, modifier: Modifier, onClick: () -> Unit) {
-    val tint = accountTint(a.type, isSystemInDarkTheme())
+    val tint = accountTint(a.type, LocalDarkTheme.current)
     val icon = when (a.type) {
         AccountType.BANK -> Icons.Outlined.AccountBalance
         AccountType.CASH -> Icons.Outlined.AccountBalanceWallet

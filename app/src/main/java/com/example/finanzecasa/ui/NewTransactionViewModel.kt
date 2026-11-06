@@ -29,7 +29,8 @@ data class LoadedTransaction(
     val accountId: Long,          // per i trasferimenti: account di partenza
     val toAccountId: Long?,
     val categoryId: Long?,
-    val dateTime: LocalDateTime
+    val dateTime: LocalDateTime,
+    val note: String = ""
 )
 
 class NewTransactionViewModel(application: Application) : AndroidViewModel(application) {
@@ -58,19 +59,20 @@ class NewTransactionViewModel(application: Application) : AndroidViewModel(appli
         accountId: Long,            // account di riferimento (per i trasferimenti: quello di partenza)
         toAccountId: Long?,         // solo trasferimenti
         categoryId: Long?,          // ignorata nei trasferimenti
-        dateTime: LocalDateTime
+        dateTime: LocalDateTime,
+        note: String = ""           // ignorata nei trasferimenti (hanno la nota "Saldo trasferito A → B")
     ) {
         val millis = dateTime.toMillis()
         when (type) {
             TxType.EXPENSE -> dao.insertTransaction(
                 TransactionEntity(
-                    accountId = accountId, categoryId = categoryId, title = title,
+                    accountId = accountId, categoryId = categoryId, title = title, note = note,
                     amountCents = -amountCents, dateMillis = millis
                 )
             )
             TxType.INCOME -> dao.insertTransaction(
                 TransactionEntity(
-                    accountId = accountId, categoryId = categoryId, title = title,
+                    accountId = accountId, categoryId = categoryId, title = title, note = note,
                     amountCents = amountCents, dateMillis = millis
                 )
             )
@@ -111,7 +113,7 @@ class NewTransactionViewModel(application: Application) : AndroidViewModel(appli
         }
         return LoadedTransaction(
             if (t.amountCents < 0) TxType.EXPENSE else TxType.INCOME,
-            t.title, abs(t.amountCents), t.accountId, null, t.categoryId, dt
+            t.title, abs(t.amountCents), t.accountId, null, t.categoryId, dt, t.note
         )
     }
 
@@ -125,9 +127,9 @@ class NewTransactionViewModel(application: Application) : AndroidViewModel(appli
     /** Modifica = elimina la vecchia e salva la nuova (vale anche se cambia il tipo). */
     suspend fun update(
         id: Long, type: TxType, title: String, amountCents: Long,
-        accountId: Long, toAccountId: Long?, categoryId: Long?, dateTime: LocalDateTime
+        accountId: Long, toAccountId: Long?, categoryId: Long?, dateTime: LocalDateTime, note: String = ""
     ) = app.db.withTransaction {
         delete(id)
-        save(type, title, amountCents, accountId, toAccountId, categoryId, dateTime)
+        save(type, title, amountCents, accountId, toAccountId, categoryId, dateTime, note)
     }
 }

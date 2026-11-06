@@ -68,11 +68,12 @@ fun TextInput(label: String, value: String, onChange: (String) -> Unit) {
 }
 
 @Composable
-fun MoneyInput(label: String, value: String, onChange: (String) -> Unit) {
+fun MoneyInput(label: String, value: String, signed: Boolean = false, onChange: (String) -> Unit) {
     OutlinedTextField(
         value = value, onValueChange = onChange, label = { Text(label) },
         singleLine = true, modifier = Modifier.fillMaxWidth(),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+        // Con importi negativi serve il segno "-": la tastiera numerica decimale non sempre lo offre.
+        keyboardOptions = KeyboardOptions(keyboardType = if (signed) KeyboardType.Text else KeyboardType.Decimal)
     )
 }
 

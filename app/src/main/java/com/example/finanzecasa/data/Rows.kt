@@ -34,3 +34,22 @@ data class BudgetSpent(
     val budgetId: Long,
     val spentCents: Long
 )
+
+/** Riga per l'esportazione CSV: una per ogni transazione (i trasferimenti hanno due righe, una per conto). */
+data class ExportRow(
+    val accountName: String,
+    val amountCents: Long,
+    val title: String,
+    val note: String,
+    val dateMillis: Long,
+    val kind: TxKind,
+    val categoryName: String?,
+    val parentCategoryName: String?
+)
+
+/** Totale speso in una categoria principale nel periodo. */
+data class CategorySpend(
+    val name: String,
+    val icon: String?,
+    val totalCents: Long
+)

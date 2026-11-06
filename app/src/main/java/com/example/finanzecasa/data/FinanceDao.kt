@@ -177,7 +177,10 @@ interface FinanceDao {
     @Query("DELETE FROM transactions WHERE transferGroupId = :groupId")
     suspend fun deleteTransferGroup(groupId: String)
 
-    /** Tutte le transazioni (anche future), filtrabili per account (una delle due gambe) e testo. */
+    /**
+     * Tutte le transazioni (anche future), filtrabili per account (una delle due gambe), testo (titolo, nota,
+     * categoria) e intervallo di date ([fromMillis] incluso, [toMillis] escluso; null = senza limite).
+     */
     @Query(
         """SELECT t.id AS id, t.title AS title, t.amountCents AS amountCents, t.dateMillis AS dateMillis,
                   t.kind AS kind, a.name AS accountName,
@@ -193,12 +196,14 @@ interface FinanceDao {
              AND (:accountId IS NULL OR t.accountId = :accountId OR EXISTS (
                    SELECT 1 FROM transactions t3
                    WHERE t3.transferGroupId = t.transferGroupId AND t3.accountId = :accountId))
-             AND (:query = '' OR t.title LIKE '%' || :query || '%'
+             AND (:query = '' OR t.title LIKE '%' || :query || '%' OR t.note LIKE '%' || :query || '%'
                   OR c.name LIKE '%' || :query || '%' OR p.name LIKE '%' || :query || '%')
+             AND (:fromMillis IS NULL OR t.dateMillis >= :fromMillis)
+             AND (:toMillis IS NULL OR t.dateMillis < :toMillis)
            ORDER BY t.dateMillis DESC, t.id DESC
            LIMIT :limit"""
     )
-    fun observeAll(accountId: Long?, query: String, limit: Int): Flow<List<TransactionRow>>
+    fun observeAll(accountId: Long?, query: String, fromMillis: Long?, toMillis: Long?, limit: Int): Flow<List<TransactionRow>>
 
     // --- Grafico del saldo
     @Query("SELECT COALESCE(SUM(initialBalanceCents), 0) FROM accounts")
@@ -261,4 +266,85 @@ interface FinanceDao {
            FROM budgets b"""
     )
     fun observeBudgetSpending(fromMillis: Long, toMillis: Long): Flow<List<BudgetSpent>>
+
+    // --- Correzione saldo ed eliminazione account
+    /** Somma delle transazioni di un account fino a [toMillis] (esclusa). Il saldo è il valore iniziale più questa somma. */
+    @Query("SELECT COALESCE(SUM(amountCents), 0) FROM transactions WHERE accountId = :accountId AND dateMillis < :toMillis")
+    suspend fun sumForAccount(accountId: Long, toMillis: Long): Long
+
+    /** L'altra gamba di un trasferimento con l'account eliminato diventa una normale entrata/uscita: il suo saldo non cambia. */
+    @Query(
+        """UPDATE transactions SET kind = 'NORMAL', transferGroupId = NULL
+           WHERE accountId <> :accountId AND transferGroupId IN (
+               SELECT transferGroupId FROM transactions WHERE accountId = :accountId AND transferGroupId IS NOT NULL)"""
+    )
+    suspend fun detachTransfersOf(accountId: Long)
+
+    @Query("DELETE FROM transactions WHERE accountId = :accountId")
+    suspend fun deleteTransactionsOfAccount(accountId: Long)
+
+    @Query("DELETE FROM subscriptions WHERE accountId = :accountId")
+    suspend fun deleteSubscriptionsOfAccount(accountId: Long)
+
+    @Query("DELETE FROM loans WHERE accountId = :accountId")
+    suspend fun deleteLoansOfAccount(accountId: Long)
+
+    @Query("DELETE FROM card_statements WHERE cardAccountId = :accountId")
+    suspend fun deleteStatementsOfCard(accountId: Long)
+
+    /** Le carte che addebitavano sull'account eliminato perdono l'addebito automatico. */
+    @Query(
+        "UPDATE accounts SET linkedAccountId = NULL, cycleStartDay = NULL, debitDay = NULL, autoDebitSinceEpochDay = NULL " +
+            "WHERE linkedAccountId = :accountId"
+    )
+    suspend fun unlinkCardsFrom(accountId: Long)
+
+    @Query("DELETE FROM accounts WHERE id = :accountId")
+    suspend fun deleteAccountRow(accountId: Long)
+
+    // --- Esportazione CSV
+    @Query("SELECT * FROM accounts ORDER BY name")
+    suspend fun allAccounts(): List<AccountEntity>
+
+    @Query(
+        """SELECT a.name AS accountName, t.amountCents AS amountCents, t.title AS title, t.note AS note,
+                  t.dateMillis AS dateMillis, t.kind AS kind,
+                  c.name AS categoryName, p.name AS parentCategoryName
+           FROM transactions t
+           JOIN accounts a ON a.id = t.accountId
+           LEFT JOIN categories c ON c.id = t.categoryId
+           LEFT JOIN categories p ON p.id = c.parentId
+           ORDER BY t.dateMillis DESC, t.id DESC"""
+    )
+    suspend fun exportRows(): List<ExportRow>
+
+    // --- Spese per categoria (grafico a ciambella)
+    /** Uscite normali del periodo raggruppate per categoria principale (le sotto-categorie confluiscono nella principale). */
+    @Query(
+        """SELECT COALESCE(p.name, c.name, 'Senza categoria') AS name,
+                  CASE WHEN p.id IS NOT NULL THEN p.icon ELSE c.icon END AS icon,
+                  SUM(-t.amountCents) AS totalCents
+           FROM transactions t
+           LEFT JOIN categories c ON c.id = t.categoryId
+           LEFT JOIN categories p ON p.id = c.parentId
+           WHERE t.kind = 'NORMAL' AND t.amountCents < 0 AND t.dateMillis >= :fromMillis AND t.dateMillis < :toMillis
+           GROUP BY COALESCE(p.id, c.id)
+           ORDER BY totalCents DESC"""
+    )
+    fun observeCategorySpend(fromMillis: Long, toMillis: Long): Flow<List<CategorySpend>>
+
+    // --- Storico budget
+    /** Uscite (importo positivo) che rientrano in un budget, per costruire la spesa mese per mese. */
+    @Query(
+        """SELECT t.dateMillis AS dateMillis, -t.amountCents AS amountCents FROM transactions t
+           WHERE t.kind = 'NORMAL' AND t.amountCents < 0
+             AND t.dateMillis >= :fromMillis AND t.dateMillis < :toMillis
+             AND t.categoryId IN (
+                 SELECT bc.categoryId FROM budget_categories bc WHERE bc.budgetId = :budgetId
+                 UNION
+                 SELECT c.id FROM categories c
+                   JOIN budget_categories bc2 ON bc2.categoryId = c.parentId
+                 WHERE bc2.budgetId = :budgetId)"""
+    )
+    fun observeBudgetSpentPoints(budgetId: Long, fromMillis: Long, toMillis: Long): Flow<List<TxPoint>>
 }

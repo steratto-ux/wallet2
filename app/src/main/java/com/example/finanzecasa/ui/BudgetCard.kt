@@ -1,7 +1,6 @@
 package com.example.finanzecasa.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +12,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,17 +40,17 @@ private class BudgetPalette(val header: Color, val fill: Color, val track: Color
 
 @Composable
 private fun paletteFor(state: BudgetState): BudgetPalette {
-    val dark = isSystemInDarkTheme()
+    val dark = LocalDarkTheme.current
     return when (state) {
         BudgetState.ON_TRACK ->
-            if (dark) BudgetPalette(Color(0xFF27322D), Color(0xFF4A6357), Color(0xFF222925))
-            else BudgetPalette(Color(0xFFE4ECE6), Color(0xFFC3D6C9), Color(0xFFEEF2EE))
+            if (dark) BudgetPalette(Color(0xFF1F3A31), Color(0xFF2F7A62), Color(0xFF1C2B26))
+            else BudgetPalette(Color(0xFFDDF3E9), Color(0xFF9ADCC0), Color(0xFFEAF7F1))
         BudgetState.AHEAD ->
-            if (dark) BudgetPalette(Color(0xFF3A2A28), Color(0xFF6E4C47), Color(0xFF2C2321))
-            else BudgetPalette(Color(0xFFF4E3E0), Color(0xFFE3BFB9), Color(0xFFF6ECEA))
+            if (dark) BudgetPalette(Color(0xFF45292A), Color(0xFF9A5650), Color(0xFF302222))
+            else BudgetPalette(Color(0xFFFCE4E0), Color(0xFFF2AFA6), Color(0xFFFBEFED))
         BudgetState.OVER ->
-            if (dark) BudgetPalette(Color(0xFF4A2C27), Color(0xFF8A5249), Color(0xFF33231F))
-            else BudgetPalette(Color(0xFFEBCBC5), Color(0xFFD79C94), Color(0xFFF2DEDA))
+            if (dark) BudgetPalette(Color(0xFF55231F), Color(0xFFB8493F), Color(0xFF352120))
+            else BudgetPalette(Color(0xFFF7CCC6), Color(0xFFE5827A), Color(0xFFF9E4E1))
     }
 }
 
@@ -54,7 +59,13 @@ private val BarHeight = 28.dp
 private val BarGap = 4.dp
 
 @Composable
-fun BudgetCard(data: BudgetCardData, now: LocalDateTime, modifier: Modifier = Modifier, onClick: () -> Unit) {
+fun BudgetCard(
+    data: BudgetCardData,
+    now: LocalDateTime,
+    modifier: Modifier = Modifier,
+    onHistory: (() -> Unit)? = null,
+    onClick: () -> Unit
+) {
     val status = BudgetMath.status(data.amountCents, data.spentCents, now)
     val palette = paletteFor(status.state)
     val monthStart = now.toLocalDate().withDayOfMonth(1)
@@ -78,6 +89,14 @@ fun BudgetCard(data: BudgetCardData, now: LocalDateTime, modifier: Modifier = Mo
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+            if (onHistory != null) {
+                IconButton(
+                    onClick = onHistory,
+                    colors = IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)
+                ) {
+                    Icon(Icons.Outlined.History, contentDescription = "Storico del budget", modifier = Modifier.size(22.dp))
+                }
             }
         }
 

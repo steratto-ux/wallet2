@@ -83,6 +83,7 @@ fun NewTransactionScreen(
 
     var type by rememberSaveable { mutableStateOf(TxType.EXPENSE) }
     var title by rememberSaveable { mutableStateOf("") }
+    var note by rememberSaveable { mutableStateOf("") }
     var amountText by rememberSaveable { mutableStateOf("") }
     var selectedAccountId by rememberSaveable { mutableStateOf<Long?>(null) }
     var selectedToId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -100,6 +101,7 @@ fun NewTransactionScreen(
             vm.load(transactionId)?.let { t ->
                 type = t.type
                 title = t.title
+                note = t.note
                 amountText = centsToInput(t.amountCents)
                 selectedAccountId = t.accountId
                 selectedToId = t.toAccountId
@@ -150,6 +152,14 @@ fun NewTransactionScreen(
                 value = title, onValueChange = { title = it },
                 label = { Text("Titolo") }, singleLine = true, modifier = Modifier.fillMaxWidth()
             )
+
+            // Nota (non per i trasferimenti)
+            if (type != TxType.TRANSFER) {
+                OutlinedTextField(
+                    value = note, onValueChange = { note = it },
+                    label = { Text("Note") }, minLines = 2, maxLines = 5, modifier = Modifier.fillMaxWidth()
+                )
+            }
 
             // Categoria (non per i trasferimenti)
             if (type != TxType.TRANSFER) {
@@ -207,9 +217,9 @@ fun NewTransactionScreen(
                             error = "Scegli due account diversi."
                         else -> scope.launch {
                             if (transactionId == null) {
-                                vm.save(type, title.trim(), cents, accountId, toId, categoryId, dateTime)
+                                vm.save(type, title.trim(), cents, accountId, toId, categoryId, dateTime, note.trim())
                             } else {
-                                vm.update(transactionId, type, title.trim(), cents, accountId, toId, categoryId, dateTime)
+                                vm.update(transactionId, type, title.trim(), cents, accountId, toId, categoryId, dateTime, note.trim())
                             }
                             val msg = if (isFuture) "Programmata: verrà conteggiata il ${dateTime.format(whenFmt)}"
                             else "Transazione salvata"

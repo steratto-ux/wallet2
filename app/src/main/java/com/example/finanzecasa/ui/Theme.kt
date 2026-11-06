@@ -9,6 +9,8 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -16,67 +18,67 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.finanzecasa.data.AccountType
 
-// Palette volutamente spenta: grigi caldi, un verde salvia come colore principale, rosso terra per le uscite.
+// Palette fresca ma non aggressiva: verde acqua come colore principale, rosso corallo per le uscite.
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF45605A),
+    primary = Color(0xFF1E9E7C),
     onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFE2EAE6),
-    onPrimaryContainer = Color(0xFF22302C),
-    secondary = Color(0xFF6B7773),
+    primaryContainer = Color(0xFFD3F1E6),
+    onPrimaryContainer = Color(0xFF0B3D2E),
+    secondary = Color(0xFF5B7A8C),
     onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFE9ECEA),
-    onSecondaryContainer = Color(0xFF262E2B),
-    tertiary = Color(0xFF8A6F63),
+    secondaryContainer = Color(0xFFE0ECF3),
+    onSecondaryContainer = Color(0xFF1D3441),
+    tertiary = Color(0xFFD98A3D),
     onTertiary = Color(0xFFFFFFFF),
-    background = Color(0xFFF5F4F1),
-    onBackground = Color(0xFF1F2321),
-    surface = Color(0xFFF5F4F1),
-    onSurface = Color(0xFF1F2321),
-    surfaceVariant = Color(0xFFE8E6E1),
-    onSurfaceVariant = Color(0xFF6A6E6B),
-    surfaceTint = Color(0xFF45605A),
-    outline = Color(0xFFB5B6B1),
-    outlineVariant = Color(0xFFE3E1DC),
-    error = Color(0xFFA85A50),
+    background = Color(0xFFF2F6F4),
+    onBackground = Color(0xFF16201D),
+    surface = Color(0xFFF2F6F4),
+    onSurface = Color(0xFF16201D),
+    surfaceVariant = Color(0xFFE3ECE8),
+    onSurfaceVariant = Color(0xFF5C6B66),
+    surfaceTint = Color(0xFF1E9E7C),
+    outline = Color(0xFF9DB0A8),
+    outlineVariant = Color(0xFFDAE5E0),
+    error = Color(0xFFD6493D),
     onError = Color(0xFFFFFFFF),
-    errorContainer = Color(0xFFF3E3DF),
-    onErrorContainer = Color(0xFF5A2A23),
+    errorContainer = Color(0xFFFBDDD9),
+    onErrorContainer = Color(0xFF5A1A14),
     surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFFAF9F7),
-    surfaceContainer = Color(0xFFF1F0EC),
-    surfaceContainerHigh = Color(0xFFECEAE6),
-    surfaceContainerHighest = Color(0xFFE6E4DF)
+    surfaceContainerLow = Color(0xFFF8FBFA),
+    surfaceContainer = Color(0xFFEAF2EE),
+    surfaceContainerHigh = Color(0xFFE3EDE9),
+    surfaceContainerHighest = Color(0xFFDCE7E2)
 )
 
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFFA9C2B8),
-    onPrimary = Color(0xFF16221E),
-    primaryContainer = Color(0xFF2B3A35),
-    onPrimaryContainer = Color(0xFFD8E5DF),
-    secondary = Color(0xFF9AA5A1),
-    onSecondary = Color(0xFF1B2220),
-    secondaryContainer = Color(0xFF2A302E),
-    onSecondaryContainer = Color(0xFFDCE2DF),
-    tertiary = Color(0xFFC3A598),
-    onTertiary = Color(0xFF2E1E17),
-    background = Color(0xFF141615),
-    onBackground = Color(0xFFE6E7E4),
-    surface = Color(0xFF141615),
-    onSurface = Color(0xFFE6E7E4),
-    surfaceVariant = Color(0xFF2A2D2B),
-    onSurfaceVariant = Color(0xFF9EA39F),
-    surfaceTint = Color(0xFFA9C2B8),
-    outline = Color(0xFF5A5E5B),
-    outlineVariant = Color(0xFF2F3331),
-    error = Color(0xFFD99A8F),
-    onError = Color(0xFF3A1914),
-    errorContainer = Color(0xFF4A2C27),
-    onErrorContainer = Color(0xFFF3D9D4),
-    surfaceContainerLowest = Color(0xFF1B1E1D),
-    surfaceContainerLow = Color(0xFF1E2120),
-    surfaceContainer = Color(0xFF232625),
-    surfaceContainerHigh = Color(0xFF2A2D2B),
-    surfaceContainerHighest = Color(0xFF313533)
+    primary = Color(0xFF4FD1A8),
+    onPrimary = Color(0xFF00382A),
+    primaryContainer = Color(0xFF1B4A3C),
+    onPrimaryContainer = Color(0xFFBDF2E0),
+    secondary = Color(0xFF9CC0D4),
+    onSecondary = Color(0xFF12303F),
+    secondaryContainer = Color(0xFF2A4455),
+    onSecondaryContainer = Color(0xFFD3E8F4),
+    tertiary = Color(0xFFF0B070),
+    onTertiary = Color(0xFF3A2108),
+    background = Color(0xFF101514),
+    onBackground = Color(0xFFE3EAE7),
+    surface = Color(0xFF101514),
+    onSurface = Color(0xFFE3EAE7),
+    surfaceVariant = Color(0xFF2A3431),
+    onSurfaceVariant = Color(0xFFA5B5AF),
+    surfaceTint = Color(0xFF4FD1A8),
+    outline = Color(0xFF5E716A),
+    outlineVariant = Color(0xFF2B3935),
+    error = Color(0xFFFF8A7D),
+    onError = Color(0xFF4A150F),
+    errorContainer = Color(0xFF5A2A24),
+    onErrorContainer = Color(0xFFFFDAD5),
+    surfaceContainerLowest = Color(0xFF171D1B),
+    surfaceContainerLow = Color(0xFF1A2120),
+    surfaceContainer = Color(0xFF1F2725),
+    surfaceContainerHigh = Color(0xFF263230),
+    surfaceContainerHighest = Color(0xFF2C3A37)
 )
 
 private val Base = Typography()
@@ -101,25 +103,38 @@ private val AppShapes = Shapes(
     extraLarge = RoundedCornerShape(24.dp)
 )
 
+/** Scelta del tema: segue il telefono, oppure sempre chiaro o sempre scuro. */
+enum class ThemeMode { SYSTEM, LIGHT, DARK }
+
+/** Vale true quando l'app sta usando i colori scuri (scelta dell'utente o impostazione del telefono). */
+val LocalDarkTheme = staticCompositionLocalOf { false }
+
 @Composable
-fun AppTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = if (isSystemInDarkTheme()) DarkColors else LightColors,
-        typography = AppTypography,
-        shapes = AppShapes,
-        content = content
-    )
+fun AppTheme(mode: ThemeMode = ThemeMode.SYSTEM, content: @Composable () -> Unit) {
+    val dark = when (mode) {
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.LIGHT -> false
+        ThemeMode.DARK -> true
+    }
+    CompositionLocalProvider(LocalDarkTheme provides dark) {
+        MaterialTheme(
+            colorScheme = if (dark) DarkColors else LightColors,
+            typography = AppTypography,
+            shapes = AppShapes,
+            content = content
+        )
+    }
 }
 
-/** Verde spento per le entrate (le uscite usano il colore "error", un rosso terra). */
+/** Verde per le entrate (le uscite usano il colore "error", un rosso corallo). */
 val ColorScheme.income: Color
-    @Composable get() = if (isSystemInDarkTheme()) Color(0xFF9CC2A8) else Color(0xFF4C7A5B)
+    @Composable get() = if (LocalDarkTheme.current) Color(0xFF5FD39B) else Color(0xFF1E9E6A)
 
 /** Tinta tenue dell'icona di un account in base al tipo. */
 fun accountTint(type: AccountType, dark: Boolean): Color = when (type) {
-    AccountType.BANK -> if (dark) Color(0xFF9FB1C7) else Color(0xFF5F7791)
-    AccountType.CASH -> if (dark) Color(0xFF9CC2A8) else Color(0xFF5F8A6D)
-    AccountType.CREDIT_CARD -> if (dark) Color(0xFFD2B48F) else Color(0xFF9C7B54)
+    AccountType.BANK -> if (dark) Color(0xFF8DB6F2) else Color(0xFF3F7BD1)
+    AccountType.CASH -> if (dark) Color(0xFF5FD39B) else Color(0xFF1E9E6A)
+    AccountType.CREDIT_CARD -> if (dark) Color(0xFFF2B766) else Color(0xFFE0892B)
 }
 
 /** Stile del numero grande (saldi, patrimonio). */

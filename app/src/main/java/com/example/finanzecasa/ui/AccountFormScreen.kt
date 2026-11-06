@@ -1,6 +1,13 @@
 package com.example.finanzecasa.ui
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,6 +39,13 @@ fun AccountFormScreen(accountId: Long?, onClose: () -> Unit, vm: ManageViewModel
     var debitDayText by rememberSaveable { mutableStateOf("") }
     var linkedId by rememberSaveable { mutableStateOf<Long?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    var currentBalance by remember { mutableStateOf<Long?>(null) }
+    var showCorrection by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+
+    LaunchedEffect(accountId) {
+        if (accountId != null) currentBalance = vm.currentBalanceCents(accountId)
+    }
 
     LaunchedEffect(accountId) {
         if (accountId != null && !loaded) {
@@ -59,7 +73,7 @@ fun AccountFormScreen(accountId: Long?, onClose: () -> Unit, vm: ManageViewModel
                 selected = type,
                 onSelect = { type = it; error = null }
             )
-            MoneyInput("Valore iniziale (€)", initialText) { initialText = it; error = null }
+            MoneyInput("Valore iniziale (€)", initialText, signed = true) { initialText = it; error = null }
             Text(
                 "Il valore iniziale entra nel saldo dell'account e nel patrimonio netto. Può essere negativo.",
                 style = MaterialTheme.typography.bodySmall
@@ -81,6 +95,23 @@ fun AccountFormScreen(accountId: Long?, onClose: () -> Unit, vm: ManageViewModel
                         "Senza conto di addebito l'addebito automatico resta spento.",
                     style = MaterialTheme.typography.bodySmall
                 )
+            }
+
+            if (accountId != null) {
+                AppCard(Modifier.fillMaxWidth()) {
+                    Text("Saldo attuale", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(currentBalance?.let { formatMoney(it) } ?: "…", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        "Se il saldo non corrisponde alla realtà puoi correggerlo: non viene creata nessuna transazione, " +
+                            "cambia solo il saldo.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedButton(
+                        onClick = { showCorrection = true },
+                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                    ) { Text("Correggi saldo") }
+                }
             }
 
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -107,6 +138,59 @@ fun AccountFormScreen(accountId: Long?, onClose: () -> Unit, vm: ManageViewModel
                     }
                 }
             ) { Text("Salva") }
+            if (accountId != null) {
+                OutlinedButton(onClick = { confirmDelete = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Elimina account", color = MaterialTheme.colorScheme.error)
+                }
+            }
         }
     }
+
+    if (showCorrection && accountId != null) {
+        BalanceCorrectionDialog(
+            current = currentBalance,
+            onDismiss = { showCorrection = false },
+            onConfirm = { target ->
+                scope.launch {
+                    vm.correctBalance(accountId, target)?.let { newInitial -> initialText = centsToInput(newInitial) }
+                    currentBalance = vm.currentBalanceCents(accountId)
+                    showCorrection = false
+                }
+            }
+        )
+    }
+    if (confirmDelete && accountId != null) {
+        ConfirmDialog(
+            text = "Eliminare l'account? Verranno eliminate anche le sue transazioni, i suoi abbonamenti e prestiti. " +
+                "I trasferimenti con altri account restano su quegli account come entrate o uscite.",
+            confirmLabel = "Elimina",
+            onConfirm = { scope.launch { vm.deleteAccount(accountId); onClose() } },
+            onDismiss = { confirmDelete = false }
+        )
+    }
+}
+
+@Composable
+private fun BalanceCorrectionDialog(current: Long?, onDismiss: () -> Unit, onConfirm: (Long) -> Unit) {
+    var text by remember { mutableStateOf(current?.let { centsToInput(it) }.orEmpty()) }
+    val cents = parseSignedCents(text)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Correggi saldo") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Scrivi il saldo corretto (anche negativo). Non verrà creata nessuna transazione.")
+                MoneyInput("Nuovo saldo (€)", text, signed = true) { text = it }
+                if (cents != null && current != null && cents != current) {
+                    val diff = cents - current
+                    Text(
+                        "Differenza: " + (if (diff > 0) "+" else "") + formatMoney(diff),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(enabled = cents != null, onClick = { onConfirm(cents!!) }) { Text("Correggi") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annulla") } }
+    )
 }

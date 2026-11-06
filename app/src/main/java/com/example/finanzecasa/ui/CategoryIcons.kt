@@ -2,7 +2,6 @@ package com.example.finanzecasa.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -118,15 +117,15 @@ fun resolveCategoryIcon(c: CategoryEntity?, byId: Map<Long, CategoryEntity>): St
 }
 
 private val badgeAccents = listOf(
-    Color(0xFF6F8F83), Color(0xFF7A8CA6), Color(0xFFA67F72), Color(0xFF9C8C64),
-    Color(0xFF8F809F), Color(0xFF6F979C), Color(0xFF8C9A6E), Color(0xFFA38A8A)
+    Color(0xFF1E9E7C), Color(0xFF3F7BD1), Color(0xFFE0724A), Color(0xFFD9A021),
+    Color(0xFF8A63D2), Color(0xFF14A3B8), Color(0xFF6FA83A), Color(0xFFD9566E)
 )
 
 /** Cerchio tenue con l'icona della categoria. Il colore dipende solo dalla chiave, quindi è stabile. */
 @Composable
 fun CategoryBadge(iconKey: String, modifier: Modifier = Modifier, size: Dp = 40.dp) {
     val accent = badgeAccents[Math.floorMod(iconKey.hashCode(), badgeAccents.size)]
-    val dark = isSystemInDarkTheme()
+    val dark = LocalDarkTheme.current
     Box(
         modifier.size(size).clip(CircleShape).background(accent.copy(alpha = if (dark) 0.22f else 0.16f)),
         contentAlignment = Alignment.Center

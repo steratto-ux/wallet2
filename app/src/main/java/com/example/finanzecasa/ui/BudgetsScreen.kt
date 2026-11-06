@@ -33,7 +33,12 @@ import java.time.LocalDateTime
 
 /** Elenco dei budget mensili. Tocca un budget per modificarlo. */
 @Composable
-fun BudgetsScreen(onBack: () -> Unit, onOpenForm: (Long?) -> Unit, vm: ManageViewModel = viewModel()) {
+fun BudgetsScreen(
+    onBack: () -> Unit,
+    onOpenForm: (Long?) -> Unit,
+    onOpenHistory: (Long) -> Unit,
+    vm: ManageViewModel = viewModel()
+) {
     val budgets by vm.budgets.collectAsState()
     val now by remember { minuteClock() }.collectAsState(initial = LocalDateTime.now())
 
@@ -57,7 +62,7 @@ fun BudgetsScreen(onBack: () -> Unit, onOpenForm: (Long?) -> Unit, vm: ManageVie
             }
             if (budgets.isEmpty()) item { Text("Nessun budget. Tocca + per crearne uno.") }
             items(budgets, key = { it.id }) { b ->
-                BudgetCard(b, now, onClick = { onOpenForm(b.id) })
+                BudgetCard(b, now, onHistory = { onOpenHistory(b.id) }, onClick = { onOpenForm(b.id) })
             }
         }
     }

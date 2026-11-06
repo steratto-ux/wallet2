@@ -1,17 +1,16 @@
 package com.example.finanzecasa.ui
 
 import android.app.Application
-import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.finanzecasa.FinanceApp
 import com.example.finanzecasa.data.AccountBalance
+import com.example.finanzecasa.data.CategorySpend
 import com.example.finanzecasa.data.TransactionRow
 import com.example.finanzecasa.domain.BalancePoint
 import com.example.finanzecasa.domain.BalanceSeries
 import com.example.finanzecasa.domain.ChartRange
 import com.example.finanzecasa.domain.toMillis
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,10 +18,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.time.LocalDateTime
 import java.time.Instant
+import java.time.LocalDateTime
+import java.time.YearMonth
 import java.time.ZoneId
 
 data class HomeState(
@@ -35,74 +33,79 @@ data class HomeState(
     val recent: List<TransactionRow> = emptyList(),
     val range: ChartRange = ChartRange.MONTH,
     val chart: List<BalancePoint> = emptyList(),
-    val budgets: List<BudgetCardData> = emptyList()
+    val budgets: List<BudgetCardData> = emptyList(),
+    val spendMonth: YearMonth = YearMonth.now(),
+    val categorySpend: List<CategorySpend> = emptyList()
 )
 
+private data class HomeInputs(val now: LocalDateTime, val range: ChartRange, val spendMonth: YearMonth)
+
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
-    private val app = application as FinanceApp
-    private val dao = app.db.dao()
+    private val dao = (application as FinanceApp).db.dao()
 
     /** Intervallo scelto per il grafico del saldo. */
     private val range = MutableStateFlow(ChartRange.MONTH)
 
+    /** Mese mostrato nel grafico a ciambella delle spese. */
+    private val spendMonth = MutableStateFlow(YearMonth.now())
+
     fun selectRange(r: ChartRange) { range.value = r }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val state: StateFlow<HomeState> = combine(minuteClock(), range) { now, r -> now to r }
-        .flatMapLatest { (now, r) ->
-            val today = now.toLocalDate()
-            val monthStart = today.withDayOfMonth(1).atStartOfDay().toMillis()
-            val upTo = now.plusMinutes(1).toMillis() // include il minuto corrente, esclude il futuro
-            val chartStart = r.startDate(today)
-            val chartFrom = chartStart.atStartOfDay().toMillis()
-
-            val core = combine(
-                dao.observeBalances(upTo),
-                dao.observeExpenses(monthStart, upTo),
-                dao.observeIncome(monthStart, upTo),
-                dao.observeRecent(upTo, 15)
-            ) { balances, expenses, income, recent ->
-                HomeState(
-                    loaded = true,
-                    now = now,
-                    accounts = balances,
-                    netWorthCents = balances.sumOf { it.balanceCents },
-                    monthExpensesCents = expenses,
-                    monthIncomeCents = income,
-                    recent = recent,
-                    range = r
-                )
-            }
-            // Saldo totale all'inizio dell'intervallo + movimenti giorno per giorno
-            val chart = combine(
-                dao.observeInitialTotal(),
-                dao.observeSumBefore(chartFrom),
-                dao.observeTxPoints(chartFrom, upTo)
-            ) { initial, before, points ->
-                val zone = ZoneId.systemDefault()
-                BalanceSeries.build(
-                    startCents = initial + before,
-                    txs = points.map { Instant.ofEpochMilli(it.dateMillis).atZone(zone).toLocalDate() to it.amountCents },
-                    from = chartStart,
-                    to = today
-                )
-            }
-            combine(core, chart, budgetCards(dao, now)) { c, ch, bu -> c.copy(chart = ch, budgets = bu) }
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeState())
-
-    val importStatus = MutableStateFlow("")
-
-    fun importCsv(uri: Uri) {
-        viewModelScope.launch {
-            importStatus.value = "Import in corso…"
-            importStatus.value = withContext(Dispatchers.IO) {
-                runCatching {
-                    val text = getApplication<Application>().contentResolver.openInputStream(uri)!!
-                        .bufferedReader().use { it.readText() }
-                    app.importRepository.import(text).summary()
-                }.getOrElse { "Errore: ${it.message}" }
-            }
-        }
+    /** Sposta il mese della ciambella (-1 = mese precedente). Non si va oltre il mese in corso. */
+    fun shiftSpendMonth(delta: Int) {
+        val next = spendMonth.value.plusMonths(delta.toLong())
+        if (!next.isAfter(YearMonth.now())) spendMonth.value = next
     }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val state: StateFlow<HomeState> =
+        combine(minuteClock(), range, spendMonth) { now, r, m -> HomeInputs(now, r, m) }
+            .flatMapLatest { (now, r, m) ->
+                val today = now.toLocalDate()
+                val monthStart = today.withDayOfMonth(1).atStartOfDay().toMillis()
+                val upTo = now.plusMinutes(1).toMillis() // include il minuto corrente, esclude il futuro
+                val chartStart = r.startDate(today)
+                val chartFrom = chartStart.atStartOfDay().toMillis()
+
+                // Ciambella: per il mese in corso si arriva fino ad ora, per i mesi passati fino alla fine del mese
+                val spendFrom = m.atDay(1).atStartOfDay().toMillis()
+                val spendTo = if (m == YearMonth.from(now)) upTo else m.plusMonths(1).atDay(1).atStartOfDay().toMillis()
+
+                val core = combine(
+                    dao.observeBalances(upTo),
+                    dao.observeExpenses(monthStart, upTo),
+                    dao.observeIncome(monthStart, upTo),
+                    dao.observeRecent(upTo, 15)
+                ) { balances, expenses, income, recent ->
+                    HomeState(
+                        loaded = true,
+                        now = now,
+                        accounts = balances,
+                        netWorthCents = balances.sumOf { it.balanceCents },
+                        monthExpensesCents = expenses,
+                        monthIncomeCents = income,
+                        recent = recent,
+                        range = r,
+                        spendMonth = m
+                    )
+                }
+                // Saldo totale all'inizio dell'intervallo + movimenti giorno per giorno
+                val chart = combine(
+                    dao.observeInitialTotal(),
+                    dao.observeSumBefore(chartFrom),
+                    dao.observeTxPoints(chartFrom, upTo)
+                ) { initial, before, points ->
+                    val zone = ZoneId.systemDefault()
+                    BalanceSeries.build(
+                        startCents = initial + before,
+                        txs = points.map { Instant.ofEpochMilli(it.dateMillis).atZone(zone).toLocalDate() to it.amountCents },
+                        from = chartStart,
+                        to = today
+                    )
+                }
+                combine(
+                    core, chart, budgetCards(dao, now), dao.observeCategorySpend(spendFrom, spendTo)
+                ) { c, ch, bu, sp -> c.copy(chart = ch, budgets = bu, categorySpend = sp) }
+            }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeState())
 }

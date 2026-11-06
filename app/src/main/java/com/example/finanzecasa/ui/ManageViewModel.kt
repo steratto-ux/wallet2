@@ -12,14 +12,21 @@ import com.example.finanzecasa.data.BudgetEntity
 import com.example.finanzecasa.data.CategoryEntity
 import com.example.finanzecasa.data.LoanEntity
 import com.example.finanzecasa.data.SubscriptionEntity
+import com.example.finanzecasa.domain.BudgetHistory
 import com.example.finanzecasa.domain.DueItemsProcessor
+import com.example.finanzecasa.domain.MonthSpend
+import com.example.finanzecasa.domain.toMillis
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
+import java.time.ZoneId
 
 /** Gestione di account, categorie, abbonamenti e prestiti (creazione, modifica, eliminazione). */
 class ManageViewModel(application: Application) : AndroidViewModel(application) {
@@ -71,6 +78,38 @@ class ManageViewModel(application: Application) : AndroidViewModel(application) 
         return null
     }
 
+    /** Saldo attuale dell'account: valore iniziale più le transazioni già avvenute (le future non contano). */
+    suspend fun currentBalanceCents(id: Long): Long? {
+        val a = dao.accountById(id) ?: return null
+        return a.initialBalanceCents + dao.sumForAccount(id, System.currentTimeMillis() + 60_000)
+    }
+
+    /**
+     * Porta il saldo attuale a [targetCents] senza creare transazioni: si modifica il valore iniziale dell'account
+     * della differenza. Restituisce il nuovo valore iniziale.
+     */
+    suspend fun correctBalance(id: Long, targetCents: Long): Long? = app.db.withTransaction {
+        val a = dao.accountById(id) ?: return@withTransaction null
+        val current = a.initialBalanceCents + dao.sumForAccount(id, System.currentTimeMillis() + 60_000)
+        val newInitial = a.initialBalanceCents + (targetCents - current)
+        dao.updateAccount(a.copy(initialBalanceCents = newInitial))
+        newInitial
+    }
+
+    /**
+     * Elimina l'account con le sue transazioni, i suoi abbonamenti e prestiti. I trasferimenti con altri account
+     * restano sull'altro account come normali entrate/uscite (il suo saldo non cambia).
+     */
+    suspend fun deleteAccount(id: Long) = app.db.withTransaction {
+        dao.detachTransfersOf(id)
+        dao.deleteTransactionsOfAccount(id)
+        dao.deleteSubscriptionsOfAccount(id)
+        dao.deleteLoansOfAccount(id)
+        dao.deleteStatementsOfCard(id)
+        dao.unlinkCardsFrom(id)
+        dao.deleteAccountRow(id)
+    }
+
     // --- Categorie
     suspend fun createCategory(name: String, parentId: Long?, icon: String?): Long =
         dao.categoryByName(name, parentId)?.id
@@ -114,6 +153,21 @@ class ManageViewModel(application: Application) : AndroidViewModel(application) 
                 id
             }
             dao.insertBudgetLinks(categoryIds.map { BudgetCategoryEntity(budgetId, it) })
+        }
+    }
+
+    /** Spesa mese per mese (ultimi 12 mesi, quello in corso compreso) di un budget. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun budgetHistory(id: Long): Flow<List<MonthSpend>> = minuteClock().flatMapLatest { now ->
+        val months = BudgetHistory.lastMonths(YearMonth.from(now), 12)
+        val from = months.first().atDay(1).atStartOfDay().toMillis()
+        val to = now.plusMinutes(1).toMillis()
+        dao.observeBudgetSpentPoints(id, from, to).map { points ->
+            val zone = ZoneId.systemDefault()
+            BudgetHistory.monthly(
+                points.map { Instant.ofEpochMilli(it.dateMillis).atZone(zone).toLocalDate() to it.amountCents },
+                months
+            )
         }
     }
 

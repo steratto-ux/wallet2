@@ -2,7 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
         android:name=".FinanceApp"
-        android:label="Finanze di casa"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="Il mio wallet"
         android:theme="@style/Theme.FinanzeCasa">
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>

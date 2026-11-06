@@ -12,6 +12,7 @@ import com.example.finanzecasa.data.AppDatabase
 import com.example.finanzecasa.data.MIGRATION_1_2
 import com.example.finanzecasa.data.MIGRATION_2_3
 import com.example.finanzecasa.domain.DueItemsProcessor
+import com.example.finanzecasa.importer.ExportRepository
 import com.example.finanzecasa.importer.ImportRepository
 import java.time.LocalDate
 import java.util.concurrent.TimeUnit
@@ -21,6 +22,7 @@ class FinanceApp : Application() {
         Room.databaseBuilder(this, AppDatabase::class.java, "finanze.db").addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
     }
     val importRepository by lazy { ImportRepository(db) }
+    val exportRepository by lazy { ExportRepository(db) }
 
     override fun onCreate() {
         super.onCreate()

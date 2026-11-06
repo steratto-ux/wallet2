@@ -57,7 +57,18 @@ class ImportRepository(private val db: AppDatabase) {
             for (item in parsed.items) {
                 when (item) {
                     is ImportedTx -> {
-                        val accId = accountId(item.account ?: defaultAccountName)
+                        val accountName = item.account ?: defaultAccountName
+                        val accId = accountId(accountName)
+                        if (item.note == CashewCsvExporter.INITIAL_NOTE) {
+                            // Riga di backup con il valore iniziale: vale solo per i conti creati da questo import
+                            // (se il conto c'era già, il suo valore iniziale non si tocca).
+                            if (accountName in newAccounts) {
+                                dao.accountById(accId)?.let {
+                                    dao.updateAccount(it.copy(initialBalanceCents = it.initialBalanceCents + item.amountCents))
+                                }
+                            }
+                            continue
+                        }
                         val millis = item.date.toMillis()
                         if (dao.countSame(accId, millis, item.amountCents, item.title) > 0) { dup++; continue }
                         val leaf = item.category?.let { parent ->
