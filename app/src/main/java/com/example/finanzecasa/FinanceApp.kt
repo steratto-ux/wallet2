@@ -41,7 +41,7 @@ class FinanceApp : Application() {
 
     companion object {
         const val DB_NAME = "finanze.db"
-        const val DB_VERSION = 4 // deve coincidere con @Database(version = ...)
+        const val DB_VERSION = 5 // deve coincidere con @Database(version = ...)
     }
 }
 

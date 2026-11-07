@@ -12,7 +12,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         BudgetEntity::class, BudgetCategoryEntity::class,
         RecurringEntity::class, GoalEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -84,5 +84,13 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
+/** v4 -> v5: flag "risparmio" sui trasferimenti e tipo (necessità/desiderio) delle categorie. Solo aggiunte. */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE transactions ADD COLUMN isSavings INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE categories ADD COLUMN budgetBucket INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
 /** Tutte le migrazioni, in un posto solo: ogni nuova versione del database si aggiunge qui. */
-val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)

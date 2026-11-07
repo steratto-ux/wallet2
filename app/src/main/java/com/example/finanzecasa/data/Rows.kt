@@ -74,3 +74,10 @@ data class MonthTotal(
     val month: String,
     val totalCents: Long
 )
+
+/** Suggerimento per il titolo di una nuova transazione: ultima volta che quel titolo è stato usato. */
+data class TitleSuggestion(
+    val title: String,
+    val accountId: Long,
+    val categoryId: Long?
+)

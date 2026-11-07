@@ -1,7 +1,18 @@
 package com.example.finanzecasa.ui
 
 import android.app.Application
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,7 +48,17 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.finanzecasa.FinanceApp
+import com.example.finanzecasa.data.CategoryEntity
+import com.example.finanzecasa.data.LoanEntity
+import com.example.finanzecasa.data.MonthTotal
+import com.example.finanzecasa.data.RecurringEntity
+import com.example.finanzecasa.data.SpendRow
+import com.example.finanzecasa.data.SubscriptionEntity
 import com.example.finanzecasa.domain.Baseline
+import com.example.finanzecasa.domain.BucketRules
+import com.example.finanzecasa.domain.Rule503020
+import com.example.finanzecasa.domain.RuleMonth
+import com.example.finanzecasa.domain.RuleStatus
 import com.example.finanzecasa.domain.FixedItem
 import com.example.finanzecasa.domain.FixedSpendDetector
 import com.example.finanzecasa.domain.FixedVariableSplit
@@ -77,13 +98,29 @@ data class AnalysisData(
     val fixedKeys: Set<String>,
     val baseline: Baseline,
     val repeated: List<RepeatedSpend>,
-    val months: List<YearMonth>
+    val months: List<YearMonth>,
+    val rule: Map<YearMonth, RuleMonth>
 )
 
 data class AnalysisState(
     val data: AnalysisData? = null,
     val month: YearMonth = YearMonth.now(),
-    val split: FixedVariableSplit? = null
+    val split: FixedVariableSplit? = null,
+    val ruleMonth: YearMonth = YearMonth.now()
+)
+
+private data class Config(
+    val subs: List<SubscriptionEntity>,
+    val loans: List<LoanEntity>,
+    val recurring: List<RecurringEntity>,
+    val categories: List<CategoryEntity>
+)
+
+private data class History(
+    val rows: List<SpendRow>,
+    val income: List<MonthTotal>,
+    val futureNet: Long,
+    val savings: List<MonthTotal>
 )
 
 private const val HISTORY_MONTHS = 6      // mesi di storico letti dal database
@@ -95,6 +132,7 @@ class AnalysisViewModel(application: Application) : AndroidViewModel(application
     private val settings = AppSettings(application)
 
     private val month = MutableStateFlow(YearMonth.now())
+    private val ruleMonth = MutableStateFlow(YearMonth.now())
     private val _target = MutableStateFlow(settings.savingsTargetCents())
     val target: StateFlow<Long> = _target
 
@@ -105,6 +143,7 @@ class AnalysisViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun selectMonth(m: YearMonth) { month.value = m }
+    fun selectRuleMonth(m: YearMonth) { ruleMonth.value = m }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val data: Flow<AnalysisData> = minuteClock().flatMapLatest { now ->
@@ -112,17 +151,22 @@ class AnalysisViewModel(application: Application) : AndroidViewModel(application
         val current = YearMonth.from(now)
         val from = current.minusMonths((HISTORY_MONTHS - 1).toLong()).atDay(1).atStartOfDay().toMillis()
         val monthEnd = current.plusMonths(1).atDay(1).atStartOfDay().toMillis()
-        val config = combine(dao.observeSubscriptions(), dao.observeLoans(), dao.observeRecurring()) { s, l, r ->
-            Triple(s, l, r)
+        val config = combine(dao.observeSubscriptions(), dao.observeLoans(), dao.observeRecurring(), dao.observeCategories()) { s, l, r, c ->
+            Config(s, l, r, c)
         }
         val history = combine(
             dao.observeSpendRows(from, nowMs),
             dao.observeIncomeByMonth(from, nowMs),
-            dao.observeNetBetween(nowMs, monthEnd)
-        ) { rows, income, futureNet -> Triple(rows, income, futureNet) }
+            dao.observeNetBetween(nowMs, monthEnd),
+            dao.observeSavingsByMonth(from, nowMs)
+        ) { rows, income, futureNet, savings -> History(rows, income, futureNet, savings) }
         combine(dao.observeBalances(nowMs), config, history) { balances, cfg, hist ->
-            val (subs, loans, recurring) = cfg
-            val (rows, incomeRows, futureNet) = hist
+            val subs = cfg.subs
+            val loans = cfg.loans
+            val recurring = cfg.recurring
+            val rows = hist.rows
+            val incomeRows = hist.income
+            val futureNet = hist.futureNet
             val today = now.toLocalDate()
             val zone = ZoneId.systemDefault()
             val items = rows.map {
@@ -161,16 +205,32 @@ class AnalysisViewModel(application: Application) : AndroidViewModel(application
             val spanDays = recent.minOfOrNull { it.date }?.let { ChronoUnit.DAYS.between(it, today) + 1 } ?: 30L
             val repeated = RepeatedSpends.find(recent, fixedKeys, spanDays / 30.4)
 
-            val months = (items.map { YearMonth.from(it.date) } + current).distinct().sorted()
-            AnalysisData(today, forecast, items, fixed, fixedKeys, baseline, repeated, months)
+            val savingsByMonth = hist.savings.associate { YearMonth.parse(it.month) to it.totalCents }
+            val months = (items.map { YearMonth.from(it.date) } + incomeByMonth.keys + savingsByMonth.keys + current)
+                .distinct().sorted()
+
+            // Regola 50/30/20: ogni spesa va tra le necessità o i desideri secondo la sua categoria principale
+            val categoryById = cfg.categories.associateBy { it.id }
+            val bucketOf = { item: SpendItem ->
+                val cat = item.categoryId?.let { categoryById[it] }
+                if (cat != null) BucketRules.effective(cat.budgetBucket, cat.name) else BucketRules.auto(item.categoryName)
+            }
+            val rule = months.associateWith { ym ->
+                Rule503020.compute(
+                    items.filter { YearMonth.from(it.date) == ym }, bucketOf,
+                    incomeByMonth[ym] ?: 0L, savingsByMonth[ym] ?: 0L
+                )
+            }
+            AnalysisData(today, forecast, items, fixed, fixedKeys, baseline, repeated, months, rule)
         }
     }
 
-    val state: StateFlow<AnalysisState> = combine(data, month) { d, m ->
+    val state: StateFlow<AnalysisState> = combine(data, month, ruleMonth) { d, m, rm ->
         val shown = if (m in d.months) m else d.months.last()
         AnalysisState(
             data = d, month = shown,
-            split = SpendSplit.split(d.items.filter { YearMonth.from(it.date) == shown }, d.fixedKeys)
+            split = SpendSplit.split(d.items.filter { YearMonth.from(it.date) == shown }, d.fixedKeys),
+            ruleMonth = if (rm in d.months) rm else d.months.last()
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AnalysisState())
 }
@@ -213,6 +273,7 @@ fun AnalysisScreen(onBack: () -> Unit, vm: AnalysisViewModel = viewModel()) {
                 Text("Calcolo in corso…", style = MaterialTheme.typography.bodyMedium)
             } else {
                 ForecastCard(d)
+                RuleCard(d, st.ruleMonth, onSelect = vm::selectRuleMonth)
                 SplitCard(d, st, onSelect = vm::selectMonth)
                 SimulatorCard(d.baseline, target, onTarget = vm::setTarget)
                 RepeatedCard(d.repeated)
@@ -466,5 +527,224 @@ private fun RepeatedCard(list: List<RepeatedSpend>) {
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         LabelValue("Tutte insieme, in un anno", formatMoney(list.sumOf { it.perYearCents }), MaterialTheme.colorScheme.error, bold = true)
+    }
+}
+
+
+// ---------------------------------------------------------------- Regola 50/30/20
+
+private val needColor = Color(0xFF3F7BD1)
+private val wantColor = Color(0xFFE0724A)
+private val saveColor = Color(0xFF1E9E7C)
+private val leftColor = Color(0xFF9DB0A8)
+
+private fun pctText(p: Int?): String = if (p == null) "—" else "$p%"
+
+@Composable
+private fun RuleCard(d: AnalysisData, selected: YearMonth, onSelect: (YearMonth) -> Unit) {
+    val m = d.rule[selected] ?: return
+    val idx = d.months.indexOf(selected)
+    val outflow = m.needCents + m.wantCents + m.savingsCents
+
+    AppCard(Modifier.fillMaxWidth()) {
+        Text("Regola 50/30/20", style = MaterialTheme.typography.titleMedium)
+        Hint("50% necessità, 30% desideri, 20% risparmio: percentuali sul reddito (le entrate) del mese.")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { onSelect(d.months[idx - 1]) }, enabled = idx > 0) {
+                Icon(Icons.Outlined.ChevronLeft, contentDescription = "Mese precedente")
+            }
+            Text(
+                selected.format(monthNameFmt).replaceFirstChar { it.uppercase() },
+                style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f), textAlign = TextAlign.Center
+            )
+            IconButton(onClick = { onSelect(d.months[idx + 1]) }, enabled = idx in 0 until d.months.size - 1) {
+                Icon(Icons.Outlined.ChevronRight, contentDescription = "Mese successivo")
+            }
+        }
+
+        if (m.incomeCents <= 0 && outflow <= 0) {
+            Text("Nessun movimento in questo mese.", style = MaterialTheme.typography.bodyMedium)
+        } else {
+            // Ciambella: la torta è il reddito; se si è speso di più, è il totale di spese e risparmio
+            val slices = buildList {
+                if (m.needCents > 0) add(Slice("Necessità", m.needCents, needColor))
+                if (m.wantCents > 0) add(Slice("Desideri", m.wantCents, wantColor))
+                if (m.savingsCents > 0) add(Slice("Risparmio", m.savingsCents, saveColor))
+                if (m.leftCents > 0) add(Slice("Non assegnato", m.leftCents, leftColor))
+            }
+            val total = slices.sumOf { it.cents }
+            Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+                Donut(slices, total, Modifier.size(170.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        if (m.incomeCents > 0) "Reddito" else "Uscite",
+                        style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(formatMoney(if (m.incomeCents > 0) m.incomeCents else outflow), style = MaterialTheme.typography.titleLarge)
+                }
+            }
+            if (m.incomeCents <= 0) {
+                Hint("Nel mese non risultano entrate: le percentuali non si possono calcolare.", Modifier.padding(bottom = 6.dp))
+            }
+            if (m.leftCents < 0) {
+                Text(
+                    "Spese e risparmi superano le entrate di ${formatMoney(-m.leftCents)}.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+            }
+
+            val needTarget = Rule503020.target(m.incomeCents, Rule503020.NEED_PERCENT)
+            val wantTarget = Rule503020.target(m.incomeCents, Rule503020.WANT_PERCENT)
+            val saveTarget = Rule503020.target(m.incomeCents, Rule503020.SAVINGS_PERCENT)
+            val over = MaterialTheme.colorScheme.error
+            val good = MaterialTheme.colorScheme.income
+
+            val needStatus = Rule503020.spendStatus(m, m.needCents, Rule503020.NEED_PERCENT)
+            RuleRow(
+                needColor, "Necessità", Rule503020.NEED_PERCENT, m.needCents, m.percentOfIncome(m.needCents),
+                fraction(m.needCents, needTarget), if (needStatus == RuleStatus.OVER) over else needColor,
+                when (needStatus) {
+                    RuleStatus.OVER -> "Oltre di ${formatMoney(m.needCents - needTarget)}"
+                    RuleStatus.OK -> "Entro l'obiettivo"
+                    else -> ""
+                },
+                if (needStatus == RuleStatus.OVER) over else good
+            )
+            val wantStatus = Rule503020.spendStatus(m, m.wantCents, Rule503020.WANT_PERCENT)
+            RuleRow(
+                wantColor, "Desideri", Rule503020.WANT_PERCENT, m.wantCents, m.percentOfIncome(m.wantCents),
+                fraction(m.wantCents, wantTarget), if (wantStatus == RuleStatus.OVER) over else wantColor,
+                when (wantStatus) {
+                    RuleStatus.OVER -> "Oltre di ${formatMoney(m.wantCents - wantTarget)}"
+                    RuleStatus.OK -> "Entro l'obiettivo"
+                    else -> ""
+                },
+                if (wantStatus == RuleStatus.OVER) over else good
+            )
+            val saveStatus = Rule503020.savingsStatus(m)
+            RuleRow(
+                saveColor, "Risparmio", Rule503020.SAVINGS_PERCENT, m.savingsCents, m.percentOfIncome(m.savingsCents),
+                fraction(m.savingsCents, saveTarget), saveColor,
+                when (saveStatus) {
+                    RuleStatus.SHORT -> "Mancano ${formatMoney(saveTarget - m.savingsCents)}"
+                    RuleStatus.OK -> "Obiettivo raggiunto"
+                    else -> ""
+                },
+                if (saveStatus == RuleStatus.SHORT) MaterialTheme.colorScheme.tertiary else good
+            )
+
+            // Dettaglio: dove vanno le necessità e i desideri
+            if (m.needLines.isNotEmpty()) {
+                Text("Necessità", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 10.dp))
+                m.needLines.take(5).forEach { l -> LabelValue(l.label, formatMoney(l.cents)) }
+            }
+            if (m.wantLines.isNotEmpty()) {
+                Text("Desideri", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 10.dp))
+                m.wantLines.take(5).forEach { l -> LabelValue(l.label, formatMoney(l.cents)) }
+            }
+        }
+
+        // Ultimi mesi: tocca una colonna per vederla sopra
+        if (d.months.size > 1) {
+            Text("Ultimi mesi", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 14.dp, bottom = 4.dp))
+            RuleHistory(d.months, d.rule, selected, onSelect)
+            Hint("Le linee tratteggiate sono i confini del 50% e dell'80%: se le colonne le rispettano sei in regola.")
+        }
+        Hint(
+            "Le categorie sono classificate in automatico dal nome; per cambiare tocca la categoria in Categorie. " +
+                "Il risparmio è la somma dei trasferimenti con la casella \"Risparmio\".",
+            Modifier.padding(top = 8.dp)
+        )
+    }
+}
+
+private fun fraction(value: Long, target: Long): Float =
+    if (target <= 0) (if (value > 0) 1f else 0f) else (value.toFloat() / target).coerceIn(0f, 1f)
+
+@Composable
+private fun RuleRow(
+    color: Color, name: String, targetPercent: Int, cents: Long, percent: Int?,
+    fillFraction: Float, barColor: Color, status: String, statusColor: Color
+) {
+    Column(Modifier.fillMaxWidth().padding(top = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(Modifier.size(12.dp).clip(CircleShape).background(color))
+            Text(name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Text(pctText(percent), style = MaterialTheme.typography.titleMedium)
+            Text(formatMoney(cents), style = MaterialTheme.typography.bodyMedium)
+        }
+        Box(
+            Modifier.fillMaxWidth().padding(top = 6.dp).height(8.dp).clip(RoundedCornerShape(4.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+        ) {
+            Box(Modifier.fillMaxWidth(fillFraction).height(8.dp).background(barColor))
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 3.dp)) {
+            Text(
+                "Obiettivo $targetPercent%", style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f)
+            )
+            if (status.isNotEmpty()) Text(status, style = MaterialTheme.typography.bodySmall, color = statusColor)
+        }
+    }
+}
+
+/** Una colonna per mese: necessità, desideri e risparmio impilati, con i confini del 50% e dell'80%. */
+@Composable
+private fun RuleHistory(
+    months: List<YearMonth>, rule: Map<YearMonth, RuleMonth>,
+    selected: YearMonth, onSelect: (YearMonth) -> Unit
+) {
+    val shown = months.takeLast(6)
+    val lineColor = MaterialTheme.colorScheme.outline
+    val selectedBg = MaterialTheme.colorScheme.surfaceContainer
+    Column {
+        Canvas(
+            Modifier.fillMaxWidth().height(110.dp).pointerInput(shown) {
+                detectTapGestures { pos ->
+                    val slot = size.width.toFloat() / shown.size
+                    shown.getOrNull((pos.x / slot).toInt())?.let(onSelect)
+                }
+            }
+        ) {
+            val slot = size.width / shown.size
+            val barW = slot * 0.5f
+            val h = size.height
+            shown.forEachIndexed { i, ym ->
+                val left = i * slot + (slot - barW) / 2
+                if (ym == selected) {
+                    drawRect(selectedBg, Offset(i * slot, 0f), Size(slot, h))
+                }
+                val m = rule[ym] ?: return@forEachIndexed
+                val total = maxOf(m.incomeCents, m.needCents + m.wantCents + m.savingsCents).toFloat()
+                if (total <= 0f) return@forEachIndexed
+                var bottom = h
+                for ((cents, color) in listOf(m.needCents to needColor, m.wantCents to wantColor, m.savingsCents to saveColor)) {
+                    val segment = h * cents / total
+                    if (segment > 0f) {
+                        drawRect(color, Offset(left, bottom - segment), Size(barW, segment))
+                        bottom -= segment
+                    }
+                }
+            }
+            for (fractionOfHeight in listOf(0.5f, 0.8f)) {
+                val y = h * (1f - fractionOfHeight)
+                drawLine(
+                    lineColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.5f,
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f))
+                )
+            }
+        }
+        Row(Modifier.fillMaxWidth()) {
+            shown.forEach { ym ->
+                Text(
+                    ym.month.getDisplayName(java.time.format.TextStyle.SHORT, Locale.ITALIAN),
+                    modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (ym == selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }

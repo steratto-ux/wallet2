@@ -8,6 +8,7 @@ import androidx.room.withTransaction
 import com.example.finanzecasa.FinanceApp
 import com.example.finanzecasa.data.AccountEntity
 import com.example.finanzecasa.data.CategoryEntity
+import com.example.finanzecasa.data.TitleSuggestion
 import com.example.finanzecasa.data.TransactionEntity
 import com.example.finanzecasa.data.TxKind
 import com.example.finanzecasa.domain.Tags
@@ -37,7 +38,8 @@ data class LoadedTransaction(
     val dateTime: LocalDateTime,
     val note: String = "",
     val tags: String = "",
-    val receiptPath: String? = null
+    val receiptPath: String? = null,
+    val isSavings: Boolean = false
 )
 
 class NewTransactionViewModel(application: Application) : AndroidViewModel(application) {
@@ -54,6 +56,21 @@ class NewTransactionViewModel(application: Application) : AndroidViewModel(appli
     val knownTags: StateFlow<List<String>> =
         dao.observeTagColumns().map { Tags.distinct(it) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * Titoli già usati che corrispondono a quanto digitato (prima quelli che iniziano con il testo, poi gli altri),
+     * ognuno con account e categoria dell'ultima transazione inserita con quel titolo.
+     */
+    suspend fun suggestTitles(text: String, type: TxType): List<TitleSuggestion> {
+        val q = text.trim()
+        if (q.isEmpty() || type == TxType.TRANSFER) return emptyList()
+        val escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        val rows = dao.titleSuggestions(escaped, if (type == TxType.EXPENSE) 1 else 0)
+        val unique = rows.distinctBy { it.title.lowercase() } // la prima riga di ogni titolo è la più recente
+        val lower = q.lowercase()
+        val (starting, others) = unique.partition { it.title.lowercase().startsWith(lower) }
+        return (starting + others).take(6)
+    }
 
     /** Salva la foto scelta dalla galleria o scattata; restituisce il nome del file oppure null. */
     suspend fun importReceiptPhoto(uri: Uri): String? =
@@ -80,7 +97,8 @@ class NewTransactionViewModel(application: Application) : AndroidViewModel(appli
         dateTime: LocalDateTime,
         note: String = "",          // ignorata nei trasferimenti (hanno la nota "Saldo trasferito A → B")
         tags: String = "",          // ignorati nei trasferimenti
-        receiptPath: String? = null // ignorata nei trasferimenti
+        receiptPath: String? = null, // ignorata nei trasferimenti
+        isSavings: Boolean = false   // solo trasferimenti: conta come risparmio nella regola 50/30/20
     ) {
         val cleanTags = Tags.normalize(tags)
         val millis = dateTime.toMillis()
@@ -106,13 +124,13 @@ class NewTransactionViewModel(application: Application) : AndroidViewModel(appli
                 dao.insertTransaction(
                     TransactionEntity(
                         accountId = from.id, title = label, note = note, amountCents = -amountCents,
-                        dateMillis = millis, kind = TxKind.TRANSFER, transferGroupId = group
+                        dateMillis = millis, kind = TxKind.TRANSFER, transferGroupId = group, isSavings = isSavings
                     )
                 )
                 dao.insertTransaction(
                     TransactionEntity(
                         accountId = to.id, title = label, note = note, amountCents = amountCents,
-                        dateMillis = millis, kind = TxKind.TRANSFER, transferGroupId = group
+                        dateMillis = millis, kind = TxKind.TRANSFER, transferGroupId = group, isSavings = isSavings
                     )
                 )
             }
@@ -129,7 +147,8 @@ class NewTransactionViewModel(application: Application) : AndroidViewModel(appli
             val out = legs.firstOrNull { it.amountCents < 0 } ?: t
             val into = legs.firstOrNull { it.amountCents > 0 }
             return LoadedTransaction(
-                TxType.TRANSFER, out.title, abs(out.amountCents), out.accountId, into?.accountId, null, dt
+                TxType.TRANSFER, out.title, abs(out.amountCents), out.accountId, into?.accountId, null, dt,
+                isSavings = out.isSavings
             )
         }
         return LoadedTransaction(
@@ -156,11 +175,11 @@ class NewTransactionViewModel(application: Application) : AndroidViewModel(appli
     suspend fun update(
         id: Long, type: TxType, title: String, amountCents: Long,
         accountId: Long, toAccountId: Long?, categoryId: Long?, dateTime: LocalDateTime, note: String = "",
-        tags: String = "", receiptPath: String? = null
+        tags: String = "", receiptPath: String? = null, isSavings: Boolean = false
     ) {
         val oldReceipt = app.db.withTransaction {
             val old = deleteRows(id)
-            save(type, title, amountCents, accountId, toAccountId, categoryId, dateTime, note, tags, receiptPath)
+            save(type, title, amountCents, accountId, toAccountId, categoryId, dateTime, note, tags, receiptPath, isSavings)
             old
         }
         // La vecchia foto va tolta solo se non è più usata (sostituita, rimossa o tipo cambiato in trasferimento)

@@ -3,7 +3,11 @@ package com.example.finanzecasa.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.Text
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -61,6 +65,25 @@ fun NavIconButton(icon: ImageVector, description: String, onClick: () -> Unit, m
         Icon(
             icon, contentDescription = description,
             tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(26.dp)
+        )
+    }
+}
+
+/** Pulsante a tutta larghezza (4 x 1) con icona a sinistra e testo a destra. */
+@Composable
+fun NavWideButton(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier.clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(26.dp))
+        Text(
+            label, style = MaterialTheme.typography.titleSmall, letterSpacing = 1.sp,
+            color = MaterialTheme.colorScheme.onPrimaryContainer
         )
     }
 }

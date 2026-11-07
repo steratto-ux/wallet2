@@ -38,7 +38,9 @@ data class CategoryEntity(
     val name: String,
     val parentId: Long? = null,
     /** Chiave dell'icona scelta; null = icona automatica in base al nome. */
-    val icon: String? = null
+    val icon: String? = null,
+    /** Aggiunto nella v5, per la regola 50/30/20: 0 = automatico (dal nome), 1 = necessità, 2 = desiderio. */
+    val budgetBucket: Int = 0
 )
 
 @Entity(
@@ -61,7 +63,9 @@ data class TransactionEntity(
     val transferGroupId: String? = null,     // lega le due gambe di un trasferimento
     // Aggiunti nella v4:
     val tags: String = "",                   // etichette separate da virgola (es. "vacanza,regalo")
-    val receiptPath: String? = null          // nome del file della foto dello scontrino (cartella receipts/)
+    val receiptPath: String? = null,         // nome del file della foto dello scontrino (cartella receipts/)
+    // Aggiunto nella v5:
+    val isSavings: Boolean = false           // trasferimento che conta come risparmio (regola 50/30/20)
 )
 
 @Entity(tableName = "subscriptions")

@@ -14,6 +14,8 @@ import com.example.finanzecasa.data.LoanEntity
 import com.example.finanzecasa.data.RecurringEntity
 import com.example.finanzecasa.domain.AccountOrder
 import com.example.finanzecasa.data.SubscriptionEntity
+import com.example.finanzecasa.data.TransactionEntity
+import com.example.finanzecasa.domain.RecurringSchedule
 import com.example.finanzecasa.domain.BudgetHistory
 import com.example.finanzecasa.domain.DueItemsProcessor
 import com.example.finanzecasa.domain.MonthSpend
@@ -66,6 +68,28 @@ class ManageViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     suspend fun deleteRecurring(id: Long) = dao.deleteRecurring(id)
+
+    /**
+     * Registra subito la prossima scadenza di una ricorrente, anche prima della data prevista
+     * (ad esempio lo stipendio accreditato il 28 invece del 30): la transazione ha la data di oggi
+     * e la scadenza passa a quella successiva.
+     */
+    suspend fun registerRecurringNow(id: Long): Boolean {
+        val done = app.db.withTransaction {
+            val r = dao.recurringById(id) ?: return@withTransaction false
+            dao.insertTransaction(
+                TransactionEntity(
+                    accountId = r.accountId, categoryId = r.categoryId, title = r.title,
+                    amountCents = r.amountCents, dateMillis = LocalDate.now().atStartOfDay().toMillis()
+                )
+            )
+            val next = RecurringSchedule.following(LocalDate.ofEpochDay(r.nextDueEpochDay), r.cadence, r.anchorDay)
+            dao.updateRecurring(r.copy(nextDueEpochDay = next.toEpochDay()))
+            true
+        }
+        if (done) DueItemsProcessor(app.db).run(LocalDate.now()) // se c'erano altre scadenze già trascorse
+        return done
+    }
 
     // --- Account
     suspend fun accountById(id: Long) = dao.accountById(id)
@@ -148,12 +172,12 @@ class ManageViewModel(application: Application) : AndroidViewModel(application) 
         dao.categoryByName(name, parentId)?.id
             ?: dao.insertCategory(CategoryEntity(name = name, parentId = parentId, icon = icon))
 
-    /** Cambia nome e icona (icon == null = automatica). Restituisce un messaggio d'errore oppure null. */
-    suspend fun saveCategory(id: Long, name: String, icon: String?): String? {
+    /** Cambia nome, icona (icon == null = automatica) e, se indicato, il tipo per la regola 50/30/20. Restituisce un messaggio d'errore oppure null. */
+    suspend fun saveCategory(id: Long, name: String, icon: String?, bucket: Int? = null): String? {
         val old = dao.categoryById(id) ?: return "Categoria non trovata."
         val clash = dao.categoryByName(name, old.parentId)
         if (clash != null && clash.id != id) return "Esiste già una categoria con questo nome."
-        dao.updateCategory(old.copy(name = name, icon = icon))
+        dao.updateCategory(old.copy(name = name, icon = icon, budgetBucket = bucket ?: old.budgetBucket))
         return null
     }
 

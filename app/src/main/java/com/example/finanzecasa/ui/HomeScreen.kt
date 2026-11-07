@@ -119,10 +119,7 @@ fun HomeScreen(
                         NavIconButton(Icons.Outlined.BarChart, "Report", { onOpen("reports") }, Modifier.weight(1f))
                         NavIconButton(Icons.Outlined.Receipt, "Transazioni", { onOpen("transactions") }, Modifier.weight(1f))
                     }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        NavIconButton(Icons.Outlined.Insights, "Analisi", { onOpen("analysis") }, Modifier.weight(1f))
-                        Spacer(Modifier.weight(3f))
-                    }
+                    NavWideButton(Icons.Outlined.Insights, "ANALISI WALLET", { onOpen("analysis") }, Modifier.fillMaxWidth())
                 }
             }
 

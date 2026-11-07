@@ -34,7 +34,8 @@
         android:textColor="@color/widget_text_secondary"
         android:textSize="12sp" />
 
-    <View
+    <!-- Spazio elastico: in un widget non si può usare <View> (classe non ammessa), per questo un FrameLayout vuoto -->
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1" />

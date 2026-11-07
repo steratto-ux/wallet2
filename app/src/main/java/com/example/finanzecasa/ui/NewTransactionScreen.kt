@@ -7,6 +7,16 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Checkbox
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.input.ImeAction
+import com.example.finanzecasa.data.TitleSuggestion
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -105,6 +115,9 @@ fun NewTransactionScreen(
     var confirmDelete by remember { mutableStateOf(false) }
     var loaded by rememberSaveable { mutableStateOf(transactionId == null) }
     var tagsText by rememberSaveable { mutableStateOf("") }
+    var isSavings by rememberSaveable { mutableStateOf(false) }
+    var suggestions by remember { mutableStateOf<List<TitleSuggestion>>(emptyList()) }
+    val amountFocus = remember { FocusRequester() }
     var receiptPath by rememberSaveable { mutableStateOf<String?>(null) }
     var addedReceipt by rememberSaveable { mutableStateOf<String?>(null) } // foto aggiunta in questa schermata
     var cameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
@@ -143,8 +156,24 @@ fun NewTransactionScreen(
                 dateTime = t.dateTime
                 tagsText = t.tags
                 receiptPath = t.receiptPath
+                isSavings = t.isSavings
             }
             loaded = true
+        }
+    }
+
+    // Nuova transazione: tastiera subito sull'importo
+    LaunchedEffect(Unit) {
+        if (transactionId == null) runCatching { amountFocus.requestFocus() }
+    }
+
+    // Suggerimenti per il titolo: titoli già usati che corrispondono a quanto digitato
+    LaunchedEffect(title, type) {
+        if (title.isBlank() || type == TxType.TRANSFER) {
+            suggestions = emptyList()
+        } else {
+            delay(120)
+            suggestions = vm.suggestTitles(title, type).filter { it.title != title }
         }
     }
 
@@ -183,12 +212,22 @@ fun NewTransactionScreen(
 
             OutlinedTextField(
                 value = amountText, onValueChange = { amountText = it; error = null },
-                label = { Text("Importo (€)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                label = { Text("Importo (€)") }, singleLine = true,
+                modifier = Modifier.fillMaxWidth().focusRequester(amountFocus),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next)
             )
-            OutlinedTextField(
+            TitleAutocomplete(
                 value = title, onValueChange = { title = it },
-                label = { Text("Titolo") }, singleLine = true, modifier = Modifier.fillMaxWidth()
+                suggestions = suggestions,
+                accountNames = accounts.associate { it.id to it.name },
+                categoryNames = categories.associate { it.id to it.name },
+                onPick = { s ->
+                    // Scegliendo un titolo già usato si riprendono categoria e account dell'ultima volta
+                    title = s.title
+                    categoryId = s.categoryId?.takeIf { id -> categories.any { it.id == id } }
+                    if (accounts.any { it.id == s.accountId }) selectedAccountId = s.accountId
+                    suggestions = emptyList()
+                }
             )
 
             // Nota (non per i trasferimenti)
@@ -270,6 +309,19 @@ fun NewTransactionScreen(
                     value = accounts.firstOrNull { it.id == toId }?.name ?: "Nessun account",
                     entries = accounts.filter { it.id != accountId }.map { a -> a.name to { selectedToId = a.id; error = null } }
                 )
+                Row(
+                    Modifier.fillMaxWidth().clickable { isSavings = !isSavings },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(checked = isSavings, onCheckedChange = { isSavings = it })
+                    Column(Modifier.weight(1f)) {
+                        Text("Risparmio", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            "Conta nel 20% della regola 50/30/20 (Analisi).",
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
 
             // Data e ora
@@ -302,9 +354,9 @@ fun NewTransactionScreen(
                             error = "Scegli due account diversi."
                         else -> scope.launch {
                             if (transactionId == null) {
-                                vm.save(type, title.trim(), cents, accountId, toId, categoryId, dateTime, note.trim(), tagsText, receiptPath)
+                                vm.save(type, title.trim(), cents, accountId, toId, categoryId, dateTime, note.trim(), tagsText, receiptPath, isSavings && type == TxType.TRANSFER)
                             } else {
-                                vm.update(transactionId, type, title.trim(), cents, accountId, toId, categoryId, dateTime, note.trim(), tagsText, receiptPath)
+                                vm.update(transactionId, type, title.trim(), cents, accountId, toId, categoryId, dateTime, note.trim(), tagsText, receiptPath, isSavings && type == TxType.TRANSFER)
                             }
                             val msg = if (isFuture) "Programmata: verrà conteggiata il ${dateTime.format(whenFmt)}"
                             else "Transazione salvata"
@@ -361,6 +413,49 @@ fun NewTransactionScreen(
                 showNewCategory = false
             }
         )
+    }
+}
+
+/**
+ * Campo titolo con completamento automatico: mentre si scrive propone i titoli già usati
+ * (con account e categoria dell'ultima volta).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TitleAutocomplete(
+    value: String,
+    onValueChange: (String) -> Unit,
+    suggestions: List<TitleSuggestion>,
+    accountNames: Map<Long, String>,
+    categoryNames: Map<Long, String>,
+    onPick: (TitleSuggestion) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val open = expanded && suggestions.isNotEmpty()
+    ExposedDropdownMenuBox(expanded = open, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = { onValueChange(it); expanded = true },
+            label = { Text("Titolo") }, singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryEditable).fillMaxWidth()
+        )
+        ExposedDropdownMenu(expanded = open, onDismissRequest = { expanded = false }) {
+            suggestions.forEach { s ->
+                val details = listOfNotNull(s.categoryId?.let { categoryNames[it] }, accountNames[s.accountId]).joinToString(" · ")
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text(s.title)
+                            if (details.isNotEmpty()) {
+                                Text(details, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    },
+                    onClick = { onPick(s); expanded = false }
+                )
+            }
+        }
     }
 }
 

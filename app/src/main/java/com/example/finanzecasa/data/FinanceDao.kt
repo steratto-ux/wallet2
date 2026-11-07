@@ -517,4 +517,25 @@ interface FinanceDao {
            WHERE kind = 'NORMAL' AND dateMillis >= :fromMillis AND dateMillis < :toMillis"""
     )
     fun observeNetBetween(fromMillis: Long, toMillis: Long): Flow<Long>
+
+    /** Titoli già usati che contengono [text], dal più recente (le uscite se [expense] = 1, altrimenti le entrate). */
+    @Query(
+        """SELECT title AS title, accountId AS accountId, categoryId AS categoryId FROM transactions
+           WHERE kind = 'NORMAL' AND title <> ''
+             AND ((:expense = 1 AND amountCents < 0) OR (:expense = 0 AND amountCents > 0))
+             AND title LIKE '%' || :text || '%' ESCAPE '\'
+           ORDER BY id DESC LIMIT 300"""
+    )
+    suspend fun titleSuggestions(text: String, expense: Int): List<TitleSuggestion>
+
+    /** Trasferimenti segnati come risparmio, un totale per mese (si conta solo la gamba in uscita). */
+    @Query(
+        """SELECT strftime('%Y-%m', t.dateMillis / 1000, 'unixepoch', 'localtime') AS month,
+                  SUM(-t.amountCents) AS totalCents
+           FROM transactions t
+           WHERE t.kind = 'TRANSFER' AND t.isSavings = 1 AND t.amountCents < 0
+             AND t.dateMillis >= :fromMillis AND t.dateMillis < :toMillis
+           GROUP BY month"""
+    )
+    fun observeSavingsByMonth(fromMillis: Long, toMillis: Long): Flow<List<MonthTotal>>
 }

@@ -14,6 +14,10 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
+import com.example.finanzecasa.domain.RecurringSchedule
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,6 +46,9 @@ fun RecurringScreen(onBack: () -> Unit, onOpenForm: (Long?) -> Unit, vm: ManageV
     val list by vm.recurring.collectAsState()
     val accounts by vm.accounts.collectAsState()
     val accountNames = accounts.associate { it.id to it.name }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var registering by remember { mutableStateOf<RecurringEntity?>(null) }
 
     ScreenScaffold(
         title = "Ricorrenti", onBack = onBack,
@@ -81,9 +88,30 @@ fun RecurringScreen(onBack: () -> Unit, onOpenForm: (Long?) -> Unit, vm: ManageV
                             color = if (income) MaterialTheme.colorScheme.income else MaterialTheme.colorScheme.error
                         )
                     }
+                    if (r.active) {
+                        TextButton(onClick = { registering = r }) { Text("Registra ora") }
+                    }
                 }
             }
         }
+    }
+
+    registering?.let { r ->
+        val due = LocalDate.ofEpochDay(r.nextDueEpochDay)
+        val next = RecurringSchedule.following(due, r.cadence, r.anchorDay)
+        ConfirmDialog(
+            text = "Registrare adesso \"${r.title}\" (${formatMoney(r.amountCents)}) con la data di oggi? " +
+                "La scadenza del ${formatDate(due)} verrà considerata pagata e la prossima sarà il ${formatDate(next)}.",
+            confirmLabel = "Registra",
+            onConfirm = {
+                scope.launch {
+                    vm.registerRecurringNow(r.id)
+                    Toast.makeText(context, "Registrata: ${r.title}", Toast.LENGTH_SHORT).show()
+                }
+                registering = null
+            },
+            onDismiss = { registering = null }
+        )
     }
 }
 

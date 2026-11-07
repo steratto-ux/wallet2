@@ -143,7 +143,7 @@ fun SpendDonutCard(
 }
 
 @Composable
-private fun Donut(slices: List<Slice>, total: Long, modifier: Modifier) {
+internal fun Donut(slices: List<Slice>, total: Long, modifier: Modifier) {
     val track = MaterialTheme.colorScheme.surfaceContainer
     Canvas(modifier) {
         val stroke = 26.dp.toPx()

@@ -31,6 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.finanzecasa.data.CategoryEntity
+import com.example.finanzecasa.domain.Bucket
+import com.example.finanzecasa.domain.BucketRules
 import kotlinx.coroutines.launch
 
 @Composable
@@ -93,8 +95,8 @@ fun CategoriesScreen(onBack: () -> Unit, vm: ManageViewModel = viewModel()) {
         EditCategoryDialog(
             category = cat,
             onDismiss = { editing = null },
-            onSave = { newName, icon ->
-                scope.launch { vm.saveCategory(cat.id, newName, icon) }
+            onSave = { newName, icon, bucket ->
+                scope.launch { vm.saveCategory(cat.id, newName, icon, bucket) }
                 editing = null
             },
             onDelete = { deleting = cat; editing = null }
@@ -115,11 +117,12 @@ fun CategoriesScreen(onBack: () -> Unit, vm: ManageViewModel = viewModel()) {
 private fun EditCategoryDialog(
     category: CategoryEntity,
     onDismiss: () -> Unit,
-    onSave: (name: String, icon: String?) -> Unit,
+    onSave: (name: String, icon: String?, bucket: Int?) -> Unit,
     onDelete: () -> Unit
 ) {
     var name by remember { mutableStateOf(category.name) }
     var icon by remember { mutableStateOf(category.icon) }
+    var bucket by remember { mutableStateOf(category.budgetBucket) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Modifica categoria") },
@@ -128,12 +131,29 @@ private fun EditCategoryDialog(
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nome") }, singleLine = true)
                 Text("Icona", style = MaterialTheme.typography.labelLarge)
                 IconPicker(selected = icon, previewName = name, onSelect = { icon = it })
+                if (category.parentId == null) {
+                    Text("Nella regola 50/30/20", style = MaterialTheme.typography.labelLarge)
+                    SegmentedChoice(
+                        options = listOf(
+                            BucketRules.AUTO to "Auto",
+                            BucketRules.NEED to "Necessità",
+                            BucketRules.WANT to "Desiderio"
+                        ),
+                        selected = bucket, onSelect = { bucket = it }
+                    )
+                    Text(
+                        if (bucket == BucketRules.AUTO) "Automatico: " +
+                            (if (BucketRules.auto(name) == Bucket.NEED) "necessità" else "desiderio") + " (dal nome)."
+                        else "Scelta manuale.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 TextButton(onClick = onDelete) {
                     Text("Elimina categoria", color = MaterialTheme.colorScheme.error)
                 }
             }
         },
-        confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim(), icon) }) { Text("Salva") } },
+        confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim(), icon, if (category.parentId == null) bucket else null) }) { Text("Salva") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annulla") } }
     )
 }

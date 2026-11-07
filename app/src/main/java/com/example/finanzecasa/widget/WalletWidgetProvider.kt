@@ -30,6 +30,10 @@ class WalletWidgetProvider : AppWidgetProvider() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 refresh(context, appWidgetManager, appWidgetIds)
+            } catch (e: Exception) {
+                // Un errore nel calcolo dei dati non deve far chiudere l'app: il widget resta com'è
+                // e il tasto "Nuova transazione" continua a funzionare.
+                showFallback(context, appWidgetManager, appWidgetIds)
             } finally {
                 pending.finish()
             }
@@ -43,7 +47,24 @@ class WalletWidgetProvider : AppWidgetProvider() {
         suspend fun refreshAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
             val ids = manager.getAppWidgetIds(ComponentName(context, WalletWidgetProvider::class.java))
-            if (ids.isNotEmpty()) refresh(context, manager, ids)
+            if (ids.isEmpty()) return
+            try {
+                refresh(context, manager, ids)
+            } catch (e: Exception) {
+                showFallback(context, manager, ids)
+            }
+        }
+
+        /** Widget minimo, senza dati, ma con i tasti che aprono l'app. */
+        private fun showFallback(context: Context, manager: AppWidgetManager, ids: IntArray) {
+            for (id in ids) {
+                val views = RemoteViews(context.packageName, R.layout.widget_wallet)
+                views.setTextViewText(R.id.widget_balance, "—")
+                views.setTextViewText(R.id.widget_budget, "")
+                views.setOnClickPendingIntent(R.id.widget_root, openApp(context, null, 10))
+                views.setOnClickPendingIntent(R.id.widget_add, openApp(context, OPEN_NEW_TRANSACTION, 11))
+                manager.updateAppWidget(id, views)
+            }
         }
 
         private suspend fun refresh(context: Context, manager: AppWidgetManager, ids: IntArray) {
