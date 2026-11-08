@@ -42,6 +42,7 @@ import com.example.finanzecasa.domain.DueItemsProcessor
 import com.example.finanzecasa.ui.AccountFormScreen
 import com.example.finanzecasa.ui.AccountsOrderScreen
 import com.example.finanzecasa.ui.AnalysisScreen
+import com.example.finanzecasa.ui.GuideScreen
 import com.example.finanzecasa.ui.AppSettings
 import com.example.finanzecasa.ui.AppTheme
 import com.example.finanzecasa.ui.BudgetHistoryScreen
@@ -189,16 +190,15 @@ private fun AppRoot(
     // Richiesta dal widget: "+ Nuova transazione"
     LaunchedEffect(openRequest) {
         if (openRequest == WalletWidgetProvider.OPEN_NEW_TRANSACTION) route = "newTransaction"
+        if (openRequest == WalletWidgetProvider.OPEN_ANALYSIS) route = "analysis"
         if (openRequest != null) onOpenHandled()
     }
 
     val back: () -> Unit = {
         route = when (route) {
-            "subscriptionForm" -> "subscriptions"
-            "loanForm" -> "loans"
-            "recurringForm" -> "recurring"
+            "subscriptionForm", "loanForm", "recurringForm" -> returnTo
             "goalForm" -> "goals"
-            "accountsOrder" -> "settings"
+            "accountsOrder", "guide" -> "settings"
             "editTransaction", "budgetForm", "budgetHistory" -> returnTo
             else -> "home"
         }
@@ -210,21 +210,23 @@ private fun AppRoot(
         "editTransaction" -> NewTransactionScreen(transactionId = editId, onClose = back)
         "transactions" -> TransactionsScreen(
             onBack = back,
-            onOpen = { editId = it; returnTo = "transactions"; route = "editTransaction" }
+            onOpen = { editId = it; returnTo = "transactions"; route = "editTransaction" },
+            onOpenScheduled = { form, id -> editId = id; returnTo = "transactions"; route = form }
         )
         "account" -> AccountFormScreen(accountId = editId, onClose = back)
         "accountsOrder" -> AccountsOrderScreen(onBack = back)
         "categories" -> CategoriesScreen(onBack = back)
-        "subscriptions" -> SubscriptionsScreen(onBack = back, onOpenForm = { editId = it; route = "subscriptionForm" })
+        "subscriptions" -> SubscriptionsScreen(onBack = back, onOpenForm = { editId = it; returnTo = "subscriptions"; route = "subscriptionForm" })
         "subscriptionForm" -> SubscriptionFormScreen(id = editId, onClose = back)
-        "loans" -> LoansScreen(onBack = back, onOpenForm = { editId = it; route = "loanForm" })
+        "loans" -> LoansScreen(onBack = back, onOpenForm = { editId = it; returnTo = "loans"; route = "loanForm" })
         "loanForm" -> LoanFormScreen(id = editId, onClose = back)
-        "recurring" -> RecurringScreen(onBack = back, onOpenForm = { editId = it; route = "recurringForm" })
+        "recurring" -> RecurringScreen(onBack = back, onOpenForm = { editId = it; returnTo = "recurring"; route = "recurringForm" })
         "recurringForm" -> RecurringFormScreen(id = editId, onClose = back)
         "goals" -> GoalsScreen(onBack = back, onOpenForm = { editId = it; route = "goalForm" })
         "goalForm" -> GoalFormScreen(id = editId, onClose = back)
         "reports" -> ReportsScreen(onBack = back)
         "analysis" -> AnalysisScreen(onBack = back)
+        "guide" -> GuideScreen(onBack = back)
         "budgets" -> BudgetsScreen(
             onBack = back,
             onOpenForm = { editId = it; returnTo = "budgets"; route = "budgetForm" },
@@ -236,6 +238,7 @@ private fun AppRoot(
             themeMode = themeMode,
             onThemeChange = onThemeChange,
             onOpenAccountsOrder = { route = "accountsOrder" },
+            onOpenGuide = { route = "guide" },
             onBack = back
         )
         else -> HomeScreen(

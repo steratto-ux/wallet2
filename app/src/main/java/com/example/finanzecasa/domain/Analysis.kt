@@ -16,7 +16,9 @@ data class SpendItem(
     val categoryId: Long?,
     val categoryName: String,
     val cents: Long,
-    val date: LocalDate
+    val date: LocalDate,
+    /** Sotto-categoria, se la spesa ne ha una (per la regola 50/30/20). */
+    val subCategoryId: Long? = null
 )
 
 /** Chiave per riconoscere la "stessa" spesa: solo lettere, minuscole ("Netflix 11/2026" e "netflix" coincidono). */
@@ -103,7 +105,8 @@ object SpendSplit {
 }
 
 /** Un'uscita o entrata prevista (importo con segno). */
-data class Upcoming(val label: String, val date: LocalDate, val cents: Long)
+/** Una voce attesa fino a fine mese. [ignoreKey] c'è solo per quelle stimate dallo storico, che l'utente può escludere. */
+data class Upcoming(val label: String, val date: LocalDate, val cents: Long, val ignoreKey: String? = null)
 
 data class ForecastResult(
     val currentCents: Long,
@@ -153,7 +156,7 @@ object ForecastMath {
         fixed.filter { !it.configured && it.key !in seenThisMonth && it.typicalDay > today.dayOfMonth }
             .map { f ->
                 val day = min(f.typicalDay, today.lengthOfMonth())
-                Upcoming(f.title, today.withDayOfMonth(day), -f.typicalCents)
+                Upcoming(f.title, today.withDayOfMonth(day), -f.typicalCents, f.key)
             }
 
     fun forecast(

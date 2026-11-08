@@ -205,10 +205,18 @@ interface FinanceDao {
                   OR t.tags LIKE '%' || :query || '%')
              AND (:fromMillis IS NULL OR t.dateMillis >= :fromMillis)
              AND (:toMillis IS NULL OR t.dateMillis < :toMillis)
+             AND (:typeFilter = 0
+                  OR (:typeFilter = 1 AND t.kind = 'NORMAL' AND t.amountCents > 0)
+                  OR (:typeFilter = 2 AND t.kind = 'NORMAL' AND t.amountCents < 0)
+                  OR (:typeFilter = 3 AND t.kind = 'TRANSFER'))
+             AND (:categoryId IS NULL OR c.id = :categoryId OR c.parentId = :categoryId)
            ORDER BY t.dateMillis DESC, t.id DESC
            LIMIT :limit"""
     )
-    fun observeAll(accountId: Long?, query: String, fromMillis: Long?, toMillis: Long?, limit: Int): Flow<List<TransactionRow>>
+    fun observeAll(
+        accountId: Long?, query: String, fromMillis: Long?, toMillis: Long?,
+        typeFilter: Int, categoryId: Long?, limit: Int
+    ): Flow<List<TransactionRow>>
 
     // --- Grafico del saldo
     @Query("SELECT COALESCE(SUM(initialBalanceCents), 0) FROM accounts")
@@ -491,6 +499,7 @@ interface FinanceDao {
     @Query(
         """SELECT t.title AS title,
                   COALESCE(p.id, c.id) AS categoryId,
+                  CASE WHEN c.parentId IS NOT NULL THEN c.id END AS subCategoryId,
                   COALESCE(p.name, c.name, 'Senza categoria') AS categoryName,
                   -t.amountCents AS cents,
                   t.dateMillis AS dateMillis

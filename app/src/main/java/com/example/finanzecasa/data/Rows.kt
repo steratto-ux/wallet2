@@ -64,6 +64,7 @@ data class CategorySpend(
 data class SpendRow(
     val title: String,
     val categoryId: Long?,
+    val subCategoryId: Long?,
     val categoryName: String,
     val cents: Long,
     val dateMillis: Long

@@ -131,29 +131,30 @@ private fun EditCategoryDialog(
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nome") }, singleLine = true)
                 Text("Icona", style = MaterialTheme.typography.labelLarge)
                 IconPicker(selected = icon, previewName = name, onSelect = { icon = it })
-                if (category.parentId == null) {
-                    Text("Nella regola 50/30/20", style = MaterialTheme.typography.labelLarge)
-                    SegmentedChoice(
-                        options = listOf(
-                            BucketRules.AUTO to "Auto",
-                            BucketRules.NEED to "Necessità",
-                            BucketRules.WANT to "Desiderio"
-                        ),
-                        selected = bucket, onSelect = { bucket = it }
-                    )
-                    Text(
-                        if (bucket == BucketRules.AUTO) "Automatico: " +
-                            (if (BucketRules.auto(name) == Bucket.NEED) "necessità" else "desiderio") + " (dal nome)."
-                        else "Scelta manuale.",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                val isSub = category.parentId != null
+                Text("Nella regola 50/30/20", style = MaterialTheme.typography.labelLarge)
+                SegmentedChoice(
+                    options = listOf(
+                        BucketRules.AUTO to (if (isSub) "Come principale" else "Auto"),
+                        BucketRules.NEED to "Necessità",
+                        BucketRules.WANT to "Desiderio"
+                    ),
+                    selected = bucket, onSelect = { bucket = it }
+                )
+                Text(
+                    when {
+                        bucket != BucketRules.AUTO -> "Scelta manuale."
+                        isSub -> "Segue la categoria principale."
+                        else -> "Automatico: " + (if (BucketRules.auto(name) == Bucket.NEED) "necessità" else "desiderio") + " (dal nome)."
+                    },
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 TextButton(onClick = onDelete) {
                     Text("Elimina categoria", color = MaterialTheme.colorScheme.error)
                 }
             }
         },
-        confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim(), icon, if (category.parentId == null) bucket else null) }) { Text("Salva") } },
+        confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim(), icon, bucket) }) { Text("Salva") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annulla") } }
     )
 }

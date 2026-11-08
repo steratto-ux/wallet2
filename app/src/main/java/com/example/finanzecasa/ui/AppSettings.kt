@@ -60,4 +60,33 @@ class AppSettings(context: Context) {
     // --- Analisi: obiettivo di risparmio mensile (0 = non impostato)
     fun savingsTargetCents(): Long = prefs.getLong("savings_target", 0L)
     fun setSavingsTargetCents(v: Long) { prefs.edit().putLong("savings_target", v).apply() }
+
+    // --- Previsione: voci stimate dallo storico che l'utente non vuole più vedere (chiavi dei titoli)
+    fun forecastIgnored(): Set<String> = prefs.getStringSet("forecast_ignored", emptySet()) ?: emptySet()
+    fun addForecastIgnored(key: String) {
+        if (key.isNotEmpty()) prefs.edit().putStringSet("forecast_ignored", forecastIgnored() + key).apply()
+    }
+    fun clearForecastIgnored() { prefs.edit().remove("forecast_ignored").apply() }
+
+    // --- Nome dell'utente, per il saluto nella schermata principale
+    fun userName(): String = prefs.getString("user_name", "") ?: ""
+    fun setUserName(name: String) { prefs.edit().putString("user_name", name.trim()).apply() }
+
+    // --- Widget: saldo totale visibile (per ogni widget)
+    fun widgetShowBalance(widgetId: Int): Boolean = prefs.getBoolean("widget_balance_$widgetId", true)
+    fun setWidgetShowBalance(widgetId: Int, on: Boolean) { prefs.edit().putBoolean("widget_balance_$widgetId", on).apply() }
+    fun clearWidget(widgetId: Int) { prefs.edit().remove("widget_balance_$widgetId").apply() }
+
+    /** Emette il valore di [read] subito e ogni volta che cambia una delle [keys]. */
+    fun <T> changes(vararg keys: String, read: () -> T): Flow<T> = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key in keys) trySend(read())
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        trySend(read())
+        awaitClose { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
+
+    fun forecastIgnoredFlow(): Flow<Set<String>> = changes("forecast_ignored") { forecastIgnored() }
+    fun userNameFlow(): Flow<String> = changes("user_name") { userName() }
 }

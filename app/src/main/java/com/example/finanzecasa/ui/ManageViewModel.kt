@@ -16,6 +16,7 @@ import com.example.finanzecasa.domain.AccountOrder
 import com.example.finanzecasa.data.SubscriptionEntity
 import com.example.finanzecasa.data.TransactionEntity
 import com.example.finanzecasa.domain.RecurringSchedule
+import com.example.finanzecasa.domain.TitleKey
 import com.example.finanzecasa.domain.BudgetHistory
 import com.example.finanzecasa.domain.DueItemsProcessor
 import com.example.finanzecasa.domain.MonthSpend
@@ -67,7 +68,11 @@ class ManageViewModel(application: Application) : AndroidViewModel(application) 
         DueItemsProcessor(app.db).run(LocalDate.now()) // registra subito le scadenze già trascorse
     }
 
-    suspend fun deleteRecurring(id: Long) = dao.deleteRecurring(id)
+    suspend fun deleteRecurring(id: Long) {
+        // Lo storico resta: senza questo la previsione continuerebbe a stimare la voce dallo storico
+        dao.recurringById(id)?.let { AppSettings(app).addForecastIgnored(TitleKey.of(it.title)) }
+        dao.deleteRecurring(id)
+    }
 
     /**
      * Registra subito la prossima scadenza di una ricorrente, anche prima della data prevista
@@ -245,7 +250,10 @@ class ManageViewModel(application: Application) : AndroidViewModel(application) 
         DueItemsProcessor(app.db).run(LocalDate.now()) // registra subito le scadenze già arrivate
     }
 
-    suspend fun deleteSubscription(id: Long) = dao.deleteSubscription(id)
+    suspend fun deleteSubscription(id: Long) {
+        dao.subscriptionById(id)?.let { AppSettings(app).addForecastIgnored(TitleKey.of(it.name)) }
+        dao.deleteSubscription(id)
+    }
 
     // --- Prestiti
     suspend fun loanById(id: Long) = dao.loanById(id)
@@ -255,5 +263,8 @@ class ManageViewModel(application: Application) : AndroidViewModel(application) 
         DueItemsProcessor(app.db).run(LocalDate.now())
     }
 
-    suspend fun deleteLoan(id: Long) = dao.deleteLoan(id)
+    suspend fun deleteLoan(id: Long) {
+        dao.loanById(id)?.let { AppSettings(app).addForecastIgnored(TitleKey.of(it.name)) }
+        dao.deleteLoan(id)
+    }
 }

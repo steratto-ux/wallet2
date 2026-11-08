@@ -54,6 +54,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.finanzecasa.data.AccountBalance
@@ -99,7 +100,7 @@ fun HomeScreen(
         ) {
             item {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Il mio wallet", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                    Greeting(Modifier.weight(1f))
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Outlined.Settings, contentDescription = "Configurazione")
                     }
@@ -119,7 +120,7 @@ fun HomeScreen(
                         NavIconButton(Icons.Outlined.BarChart, "Report", { onOpen("reports") }, Modifier.weight(1f))
                         NavIconButton(Icons.Outlined.Receipt, "Transazioni", { onOpen("transactions") }, Modifier.weight(1f))
                     }
-                    NavWideButton(Icons.Outlined.Insights, "ANALISI WALLET", { onOpen("analysis") }, Modifier.fillMaxWidth())
+                    NavWideButton(Icons.Outlined.Insights, "ANALISI ECONOMICA", { onOpen("analysis") }, Modifier.fillMaxWidth())
                 }
             }
 
@@ -292,4 +293,27 @@ fun TransactionItem(t: TransactionRow, onClick: (() -> Unit)? = null) {
         }
         Text(amount, style = MaterialTheme.typography.bodyLarge, color = color, fontWeight = FontWeight.Medium)
     }
+}
+
+/** Saluto in alto nella schermata principale, secondo l'ora del giorno e con il nome scelto nelle impostazioni. */
+@Composable
+private fun Greeting(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val settings = remember { AppSettings(context) }
+    val name by settings.userNameFlow().collectAsState(initial = settings.userName())
+    val now by minuteClock().collectAsState(initial = java.time.LocalDateTime.now())
+    val text = greetingText(now.hour, name)
+    Text(text, style = MaterialTheme.typography.headlineSmall, modifier = modifier, maxLines = 1, overflow = TextOverflow.Ellipsis)
+}
+
+/** "Buongiorno Stefano!", "Buon pomeriggio Stefano!"... */
+fun greetingText(hour: Int, name: String): String {
+    val hello = when (hour) {
+        in 5..11 -> "Buongiorno"
+        in 12..17 -> "Buon pomeriggio"
+        in 18..21 -> "Buonasera"
+        else -> "Ciao"
+    }
+    val who = name.trim()
+    return if (who.isEmpty()) "$hello!" else "$hello $who!"
 }

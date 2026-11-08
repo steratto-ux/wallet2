@@ -6,23 +6,28 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.view.View
 import android.widget.RemoteViews
 import com.example.finanzecasa.FinanceApp
 import com.example.finanzecasa.MainActivity
 import com.example.finanzecasa.R
 import com.example.finanzecasa.domain.NetWorthMath
+import com.example.finanzecasa.domain.RuleLoader
 import com.example.finanzecasa.ui.AppSettings
-import com.example.finanzecasa.ui.budgetCards
 import com.example.finanzecasa.ui.formatMoney
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
+import java.time.YearMonth
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
- * Widget per la schermata Home: patrimonio netto, il budget più "caldo" del mese e un tasto
- * per aggiungere subito una transazione. Con il blocco app attivo il saldo non viene mostrato.
+ * Widget per la schermata Home: grafico a barre della regola 50/30/20 del mese, saldo totale (se scelto
+ * nella configurazione del widget) e un tasto per aggiungere subito una transazione.
+ * Con il blocco app attivo il saldo e gli importi non vengono mostrati.
  */
 class WalletWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
@@ -40,9 +45,15 @@ class WalletWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        val settings = AppSettings(context)
+        appWidgetIds.forEach { settings.clearWidget(it) }
+    }
+
     companion object {
         const val EXTRA_OPEN = "open"
         const val OPEN_NEW_TRANSACTION = "newTransaction"
+        const val OPEN_ANALYSIS = "analysis"
 
         suspend fun refreshAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
@@ -60,8 +71,8 @@ class WalletWidgetProvider : AppWidgetProvider() {
             for (id in ids) {
                 val views = RemoteViews(context.packageName, R.layout.widget_wallet)
                 views.setTextViewText(R.id.widget_balance, "—")
-                views.setTextViewText(R.id.widget_budget, "")
-                views.setOnClickPendingIntent(R.id.widget_root, openApp(context, null, 10))
+                views.setViewVisibility(R.id.widget_balance, View.GONE)
+                views.setOnClickPendingIntent(R.id.widget_root, openApp(context, OPEN_ANALYSIS, 10))
                 views.setOnClickPendingIntent(R.id.widget_add, openApp(context, OPEN_NEW_TRANSACTION, 11))
                 manager.updateAppWidget(id, views)
             }
@@ -72,30 +83,29 @@ class WalletWidgetProvider : AppWidgetProvider() {
             val dao = app.db.dao()
             val settings = AppSettings(context)
             val now = LocalDateTime.now()
+            val locked = settings.lockEnabled()
 
-            val balance: String
-            if (settings.lockEnabled()) {
-                balance = "••••••"
+            // Regola 50/30/20 del mese in corso, disegnata una volta sola per tutti i widget
+            val month = YearMonth.from(now)
+            val rule = RuleLoader.month(dao, month, now)
+            val chart = WidgetChart.render(context, rule, showAmounts = !locked)
+            val title = "50/30/20 · " + month.format(DateTimeFormatter.ofPattern("LLLL", Locale.ITALIAN))
+
+            val balance: String = if (locked) {
+                "••••••"
             } else {
                 val upTo = System.currentTimeMillis() + 60_000
                 val accounts = dao.observeBalances(upTo).first().sumOf { it.balanceCents }
-                val net = NetWorthMath.netWorthCents(accounts, dao.activeLoans(), settings.includeLoans())
-                balance = formatMoney(net)
-            }
-
-            val budgets = budgetCards(dao, now).first().filter { it.amountCents > 0 }
-            val hottest = budgets.maxByOrNull { it.spentCents.toDouble() / it.amountCents }
-            val budgetLine = when {
-                hottest == null -> ""
-                settings.lockEnabled() -> hottest.name
-                else -> "${hottest.name}: ${hottest.spentCents * 100 / hottest.amountCents}%"
+                formatMoney(NetWorthMath.netWorthCents(accounts, dao.activeLoans(), settings.includeLoans()))
             }
 
             for (id in ids) {
                 val views = RemoteViews(context.packageName, R.layout.widget_wallet)
+                views.setTextViewText(R.id.widget_title, title)
                 views.setTextViewText(R.id.widget_balance, balance)
-                views.setTextViewText(R.id.widget_budget, budgetLine)
-                views.setOnClickPendingIntent(R.id.widget_root, openApp(context, null, 10))
+                views.setViewVisibility(R.id.widget_balance, if (settings.widgetShowBalance(id)) View.VISIBLE else View.GONE)
+                views.setImageViewBitmap(R.id.widget_chart, chart)
+                views.setOnClickPendingIntent(R.id.widget_root, openApp(context, OPEN_ANALYSIS, 10))
                 views.setOnClickPendingIntent(R.id.widget_add, openApp(context, OPEN_NEW_TRANSACTION, 11))
                 manager.updateAppWidget(id, views)
             }

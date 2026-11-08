@@ -138,6 +138,7 @@ fun SettingsScreen(
     themeMode: ThemeMode,
     onThemeChange: (ThemeMode) -> Unit,
     onOpenAccountsOrder: () -> Unit,
+    onOpenGuide: () -> Unit,
     onBack: () -> Unit,
     vm: SettingsViewModel = viewModel()
 ) {
@@ -151,6 +152,7 @@ fun SettingsScreen(
     var autoBackup by remember { mutableStateOf(settings.autoBackupEnabled()) }
     var folder by remember { mutableStateOf(settings.backupFolder()) }
     var message by remember { mutableStateOf<String?>(null) }
+    var userName by remember { mutableStateOf(settings.userName()) }
     var restoreUri by remember { mutableStateOf<Uri?>(null) }
 
     val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -186,6 +188,24 @@ fun SettingsScreen(
 
     ScreenScaffold("Configurazione", onBack = onBack) { inner ->
         FormColumn(inner) {
+            AppCard(Modifier.fillMaxWidth()) {
+                Text("Guida", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "Come leggere ogni schermata e ogni grafico, con esempi, e come usare l'analisi e la regola 50/30/20.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Button(onClick = onOpenGuide, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+                    Text("Apri la guida")
+                }
+            }
+
+            Text("Il tuo nome", style = MaterialTheme.typography.titleMedium)
+            TextInput("Come ti chiami?", userName) { userName = it; settings.setUserName(it) }
+            Text(
+                "Compare nel saluto in alto nella schermata principale (Android non permette alle app di leggere il tuo nome).",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
             Text("Tema", style = MaterialTheme.typography.titleMedium)
             SegmentedChoice(
                 options = listOf(

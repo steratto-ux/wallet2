@@ -28,6 +28,18 @@ object BucketRules {
         return if (need) Bucket.NEED else Bucket.WANT
     }
 
+    /**
+     * Tipo di una spesa con sotto-categoria: vale la scelta manuale della sotto-categoria, poi quella della categoria
+     * principale; se non ce ne sono, è una necessità quando lo dice il nome di una delle due, altrimenti un desiderio.
+     */
+    fun resolve(subSetting: Int?, subName: String?, parentSetting: Int, parentName: String): Bucket = when {
+        subSetting == NEED -> Bucket.NEED
+        subSetting == WANT -> Bucket.WANT
+        parentSetting != AUTO -> effective(parentSetting, parentName)
+        auto(parentName) == Bucket.NEED || (subName != null && auto(subName) == Bucket.NEED) -> Bucket.NEED
+        else -> Bucket.WANT
+    }
+
     fun effective(setting: Int, name: String): Bucket = when (setting) {
         NEED -> Bucket.NEED
         WANT -> Bucket.WANT

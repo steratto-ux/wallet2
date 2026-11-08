@@ -65,6 +65,7 @@ import com.example.finanzecasa.domain.FixedVariableSplit
 import com.example.finanzecasa.domain.ForecastMath
 import com.example.finanzecasa.domain.ForecastResult
 import com.example.finanzecasa.domain.RepeatedSpend
+import com.example.finanzecasa.domain.RuleLoader
 import com.example.finanzecasa.domain.RepeatedSpends
 import com.example.finanzecasa.domain.SavingsPlanner
 import com.example.finanzecasa.domain.SpendItem
@@ -99,7 +100,8 @@ data class AnalysisData(
     val baseline: Baseline,
     val repeated: List<RepeatedSpend>,
     val months: List<YearMonth>,
-    val rule: Map<YearMonth, RuleMonth>
+    val rule: Map<YearMonth, RuleMonth>,
+    val ignoredCount: Int = 0
 )
 
 data class AnalysisState(
@@ -113,7 +115,8 @@ private data class Config(
     val subs: List<SubscriptionEntity>,
     val loans: List<LoanEntity>,
     val recurring: List<RecurringEntity>,
-    val categories: List<CategoryEntity>
+    val categories: List<CategoryEntity>,
+    val ignored: Set<String>
 )
 
 private data class History(
@@ -142,6 +145,10 @@ class AnalysisViewModel(application: Application) : AndroidViewModel(application
         _target.value = v
     }
 
+    /** Esclude dalla previsione una voce stimata dallo storico (ad esempio una ricorrente che non c'è più). */
+    fun ignoreForecastItem(key: String) = settings.addForecastIgnored(key)
+    fun restoreIgnored() = settings.clearForecastIgnored()
+
     fun selectMonth(m: YearMonth) { month.value = m }
     fun selectRuleMonth(m: YearMonth) { ruleMonth.value = m }
 
@@ -151,8 +158,8 @@ class AnalysisViewModel(application: Application) : AndroidViewModel(application
         val current = YearMonth.from(now)
         val from = current.minusMonths((HISTORY_MONTHS - 1).toLong()).atDay(1).atStartOfDay().toMillis()
         val monthEnd = current.plusMonths(1).atDay(1).atStartOfDay().toMillis()
-        val config = combine(dao.observeSubscriptions(), dao.observeLoans(), dao.observeRecurring(), dao.observeCategories()) { s, l, r, c ->
-            Config(s, l, r, c)
+        val config = combine(dao.observeSubscriptions(), dao.observeLoans(), dao.observeRecurring(), dao.observeCategories(), settings.forecastIgnoredFlow()) { s, l, r, c, ig ->
+            Config(s, l, r, c, ig)
         }
         val history = combine(
             dao.observeSpendRows(from, nowMs),
@@ -169,9 +176,7 @@ class AnalysisViewModel(application: Application) : AndroidViewModel(application
             val futureNet = hist.futureNet
             val today = now.toLocalDate()
             val zone = ZoneId.systemDefault()
-            val items = rows.map {
-                SpendItem(it.title, it.categoryId, it.categoryName, it.cents, Instant.ofEpochMilli(it.dateMillis).atZone(zone).toLocalDate())
-            }
+            val items = RuleLoader.toItems(rows)
             val configuredKeys = (subs.map { TitleKey.of(it.name) } + loans.map { TitleKey.of(it.name) } +
                 recurring.map { TitleKey.of(it.title) }).filter { it.isNotEmpty() }.toSet()
             val fixed = FixedSpendDetector.detect(items, configuredKeys)
@@ -185,7 +190,7 @@ class AnalysisViewModel(application: Application) : AndroidViewModel(application
 
             val seenThisMonth = items.filter { YearMonth.from(it.date) == current }.map { TitleKey.of(it.title) }.toSet()
             val upcoming = ForecastMath.configuredUpcoming(subs, loans, recurring, today) +
-                ForecastMath.patternUpcoming(fixed, seenThisMonth, today) +
+                ForecastMath.patternUpcoming(fixed.filter { it.key !in cfg.ignored }, seenThisMonth, today) +
                 (if (futureNet != 0L) listOf(Upcoming("Movimenti già registrati con data futura", today, futureNet)) else emptyList())
             val variableSoFar = items.filter { YearMonth.from(it.date) == current && TitleKey.of(it.title) !in fixedKeys }
                 .sumOf { it.cents }
@@ -210,18 +215,14 @@ class AnalysisViewModel(application: Application) : AndroidViewModel(application
                 .distinct().sorted()
 
             // Regola 50/30/20: ogni spesa va tra le necessità o i desideri secondo la sua categoria principale
-            val categoryById = cfg.categories.associateBy { it.id }
-            val bucketOf = { item: SpendItem ->
-                val cat = item.categoryId?.let { categoryById[it] }
-                if (cat != null) BucketRules.effective(cat.budgetBucket, cat.name) else BucketRules.auto(item.categoryName)
-            }
+            val bucketOf = RuleLoader.bucketOf(cfg.categories)
             val rule = months.associateWith { ym ->
                 Rule503020.compute(
                     items.filter { YearMonth.from(it.date) == ym }, bucketOf,
                     incomeByMonth[ym] ?: 0L, savingsByMonth[ym] ?: 0L
                 )
             }
-            AnalysisData(today, forecast, items, fixed, fixedKeys, baseline, repeated, months, rule)
+            AnalysisData(today, forecast, items, fixed, fixedKeys, baseline, repeated, months, rule, cfg.ignored.size)
         }
     }
 
@@ -272,7 +273,7 @@ fun AnalysisScreen(onBack: () -> Unit, vm: AnalysisViewModel = viewModel()) {
             if (d == null) {
                 Text("Calcolo in corso…", style = MaterialTheme.typography.bodyMedium)
             } else {
-                ForecastCard(d)
+                ForecastCard(d, onIgnore = vm::ignoreForecastItem, onRestore = vm::restoreIgnored)
                 RuleCard(d, st.ruleMonth, onSelect = vm::selectRuleMonth)
                 SplitCard(d, st, onSelect = vm::selectMonth)
                 SimulatorCard(d.baseline, target, onTarget = vm::setTarget)
@@ -285,7 +286,7 @@ fun AnalysisScreen(onBack: () -> Unit, vm: AnalysisViewModel = viewModel()) {
 // ---------------------------------------------------------------- 1. Previsione di fine mese
 
 @Composable
-private fun ForecastCard(d: AnalysisData) {
+private fun ForecastCard(d: AnalysisData, onIgnore: (String) -> Unit, onRestore: () -> Unit) {
     val f = d.forecast
     val endDate = d.today.withDayOfMonth(d.today.lengthOfMonth())
     AppCard(Modifier.fillMaxWidth()) {
@@ -309,6 +310,12 @@ private fun ForecastCard(d: AnalysisData) {
                     "${u.label} · ${formatDayMonth(u.date)}", signed(u.cents),
                     if (u.cents < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.income
                 )
+                u.ignoreKey?.let { key ->
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Hint("Stimata dallo storico (torna ogni mese)", Modifier.weight(1f))
+                        TextButton(onClick = { onIgnore(key) }) { Text("Non contare") }
+                    }
+                }
             }
         }
         if (f.remainingDays > 0) {
@@ -319,6 +326,9 @@ private fun ForecastCard(d: AnalysisData) {
         }
         HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant)
         LabelValue("Saldo previsto", formatMoney(f.projectedEndCents), bold = true)
+        if (d.ignoredCount > 0) {
+            TextButton(onClick = onRestore) { Text("Ripristina le voci escluse (${d.ignoredCount})") }
+        }
         Hint(
             "Le spese di tutti i giorni sono la media di quanto speso finora (all'inizio del mese pesa di più la media " +
                 "dei mesi scorsi). Stipendi e altre entrate sono contati solo se inseriti tra i ricorrenti o con data futura.",

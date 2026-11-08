@@ -88,7 +88,9 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
     val state: StateFlow<ReportState> = combine(period, minuteClock()) { p, now -> p to now }
         .flatMapLatest { (p, now) ->
             val (from, to) = bounds(p, now)
-            val (pFrom, pTo) = bounds(p.previous(), now)
+            // Periodo in corso: si confrontano gli stessi giorni del periodo precedente (non l'intero periodo)
+            val pFrom = p.previous().start.atStartOfDay().toMillis()
+            val pTo = p.previousComparableEnd(now.toLocalDate()).atStartOfDay().toMillis()
             val first = combine(
                 dao.observeExpenses(from, to), dao.observeExpenses(pFrom, pTo),
                 dao.observeIncome(from, to), dao.observeIncome(pFrom, pTo)
@@ -187,7 +189,8 @@ fun ReportsScreen(onBack: () -> Unit, vm: ReportsViewModel = viewModel()) {
                 )
                 if (p.isCurrent(today)) {
                     Text(
-                        "Il periodo è ancora in corso: il confronto è con il periodo precedente intero.",
+                        "Il periodo è ancora in corso: il confronto è con lo stesso periodo di $prevLabel " +
+                            "(dal ${formatDayMonth(p.previous().start)} al ${formatDayMonth(p.previousComparableEnd(today).minusDays(1))}).",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp)
                     )

@@ -2,6 +2,13 @@ package com.example.finanzecasa.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.Icons
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -69,21 +76,32 @@ fun NavIconButton(icon: ImageVector, description: String, onClick: () -> Unit, m
     }
 }
 
-/** Pulsante a tutta larghezza (4 x 1) con icona a sinistra e testo a destra. */
+/**
+ * Pulsante a tutta larghezza (4 x 1) con icona a sinistra e testo a destra: sfondo sfumato viola-blu
+ * e contorno dorato, per dare l'idea di una funzione in più.
+ */
 @Composable
 fun NavWideButton(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val shape = MaterialTheme.shapes.large
+    val fill = Brush.horizontalGradient(listOf(Color(0xFF5B3FD0), Color(0xFF2F6FE0)))
+    val outline = Brush.horizontalGradient(listOf(Color(0xFFFFD36B), Color(0xFFE89B2D), Color(0xFFFFD36B)))
     Row(
-        modifier.clip(MaterialTheme.shapes.large)
-            .background(MaterialTheme.colorScheme.primaryContainer)
+        modifier.clip(shape)
+            .background(fill, shape)
+            .border(2.dp, outline, shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 18.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(26.dp))
+        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
         Text(
-            label, style = MaterialTheme.typography.titleSmall, letterSpacing = 1.sp,
-            color = MaterialTheme.colorScheme.onPrimaryContainer
+            label,
+            style = MaterialTheme.typography.titleMedium,
+            fontStyle = FontStyle.Italic, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Serif,
+            letterSpacing = 1.5.sp, color = Color.White,
+            modifier = Modifier.weight(1f)
         )
+        Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = Color(0xFFFFD36B), modifier = Modifier.size(20.dp))
     }
 }
