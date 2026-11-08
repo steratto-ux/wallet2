@@ -74,4 +74,19 @@ class Rule503020Test {
         val m = Rule503020.compute(listOf(item("Spesa", 150_000)), { Bucket.NEED }, 100_000, 0)
         assertEquals(-50_000, m.leftCents)
     }
+
+    @Test
+    fun subcategorySettingWinsThenParentThenNames() {
+        // La sotto-categoria scelta a mano vince su tutto
+        assertEquals(Bucket.WANT, BucketRules.resolve(BucketRules.WANT, "Bollette", BucketRules.NEED, "Casa"))
+        assertEquals(Bucket.NEED, BucketRules.resolve(BucketRules.NEED, "Cinema", BucketRules.WANT, "Svago"))
+        // Senza scelta sulla sotto-categoria vale quella della principale
+        assertEquals(Bucket.WANT, BucketRules.resolve(BucketRules.AUTO, "Bollette", BucketRules.WANT, "Casa"))
+        assertEquals(Bucket.NEED, BucketRules.resolve(BucketRules.AUTO, "Cinema", BucketRules.NEED, "Svago"))
+        // Tutto automatico: basta un nome da necessità
+        assertEquals(Bucket.NEED, BucketRules.resolve(BucketRules.AUTO, "Farmacia", BucketRules.AUTO, "Altro"))
+        assertEquals(Bucket.NEED, BucketRules.resolve(BucketRules.AUTO, "Cena", BucketRules.AUTO, "Spesa"))
+        assertEquals(Bucket.WANT, BucketRules.resolve(BucketRules.AUTO, "Cena", BucketRules.AUTO, "Svago"))
+        assertEquals(Bucket.NEED, BucketRules.resolve(null, null, BucketRules.AUTO, "Affitto"))
+    }
 }

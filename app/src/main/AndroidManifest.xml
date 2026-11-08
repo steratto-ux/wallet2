@@ -19,6 +19,15 @@
             </intent-filter>
         </activity>
 
+        <!-- Scelta delle opzioni del widget, aperta quando lo si aggiunge alla schermata -->
+        <activity
+            android:name=".widget.WidgetConfigActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <receiver
             android:name=".widget.WalletWidgetProvider"
             android:exported="true">

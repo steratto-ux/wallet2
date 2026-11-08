@@ -5,49 +5,54 @@
     android:layout_height="match_parent"
     android:background="@drawable/widget_bg"
     android:orientation="vertical"
-    android:padding="14dp">
+    android:padding="12dp">
 
-    <TextView
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Patrimonio netto"
-        android:textColor="@color/widget_text_secondary"
-        android:textSize="12sp" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
-    <TextView
-        android:id="@+id/widget_balance"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="—"
-        android:textColor="@color/widget_text"
-        android:textSize="26sp"
-        android:textStyle="bold" />
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Regola 50/30/20"
+            android:textColor="@color/widget_text_secondary"
+            android:textSize="12sp" />
 
-    <TextView
-        android:id="@+id/widget_budget"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:maxLines="1"
-        android:ellipsize="end"
-        android:text=""
-        android:textColor="@color/widget_text_secondary"
-        android:textSize="12sp" />
+        <TextView
+            android:id="@+id/widget_balance"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:text="—"
+            android:textColor="@color/widget_text"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 
-    <!-- Spazio elastico: in un widget non si può usare <View> (classe non ammessa), per questo un FrameLayout vuoto -->
-    <FrameLayout
+    <!-- Il grafico a barre è un'immagine disegnata dall'app (un widget non può disegnare da solo) -->
+    <ImageView
+        android:id="@+id/widget_chart"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_weight="1"
+        android:contentDescription="Grafico della regola 50/30/20"
+        android:scaleType="fitCenter" />
 
     <TextView
         android:id="@+id/widget_add"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
         android:background="@drawable/widget_button_bg"
         android:gravity="center"
-        android:paddingTop="9dp"
-        android:paddingBottom="9dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
         android:text="+ Nuova transazione"
         android:textColor="@color/widget_on_accent"
         android:textSize="14sp"
