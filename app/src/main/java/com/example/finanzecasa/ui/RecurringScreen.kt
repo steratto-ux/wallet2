@@ -38,7 +38,11 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import kotlin.math.abs
 
-private fun cadenceName(c: Cadence) = if (c == Cadence.MONTHLY) "Mensile" else "Annuale"
+private fun cadenceName(c: Cadence) = when (c) {
+    Cadence.WEEKLY -> "Settimanale"
+    Cadence.MONTHLY -> "Mensile"
+    Cadence.YEARLY -> "Annuale"
+}
 
 /** Elenco delle transazioni ricorrenti (stipendio, affitto, bollette...). */
 @Composable
@@ -161,7 +165,7 @@ fun RecurringFormScreen(id: Long?, onClose: () -> Unit, vm: ManageViewModel = vi
             TextInput("Titolo (es. Stipendio, Affitto)", title) { title = it; error = null }
             MoneyInput("Importo (€)", amountText) { amountText = it; error = null }
             SegmentedChoice(
-                options = listOf(Cadence.MONTHLY to "Mensile", Cadence.YEARLY to "Annuale"),
+                options = listOf(Cadence.WEEKLY to "Settimanale", Cadence.MONTHLY to "Mensile", Cadence.YEARLY to "Annuale"),
                 selected = cadence, onSelect = { cadence = it }
             )
             OutlinedButton(onClick = { showDate = true }, modifier = Modifier.fillMaxWidth()) {

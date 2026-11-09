@@ -141,7 +141,7 @@ val guideSections: List<GuideSection> = listOf(
             bullets(
                 "Abbonamenti: Netflix, palestra, telefono. Vedi il costo mensile e annuale di tutti quelli attivi.",
                 "Prestiti: importo della rata, giorno di scadenza e numero di rate rimaste. Vedi il debito residuo stimato.",
-                "Ricorrenti: qualsiasi entrata o uscita periodica, mensile o annuale: stipendio, affitto, bollette. L'importo può essere positivo (entrata) o negativo (uscita)."
+                "Ricorrenti: qualsiasi entrata o uscita periodica, settimanale, mensile o annuale: stipendio, affitto, bollette, paghetta o spesa settimanale. L'importo può essere positivo (entrata) o negativo (uscita)."
             ),
             par("Registra ora (nelle ricorrenti): serve quando il movimento arriva in anticipo."),
             example(

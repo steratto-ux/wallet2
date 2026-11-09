@@ -8,7 +8,7 @@ import androidx.room.PrimaryKey
 
 enum class AccountType { BANK, CASH, CREDIT_CARD }
 enum class TxKind { NORMAL, TRANSFER }
-enum class Cadence { MONTHLY, YEARLY }
+enum class Cadence { MONTHLY, YEARLY, WEEKLY }
 
 /** Importi sempre in centesimi (Long): niente errori di virgola mobile. */
 @Entity(tableName = "accounts", indices = [Index(value = ["name"], unique = true)])

@@ -1,5 +1,6 @@
 package com.example.finanzecasa.domain
 
+import com.example.finanzecasa.data.Cadence
 import com.example.finanzecasa.data.LoanEntity
 import com.example.finanzecasa.data.RecurringEntity
 import com.example.finanzecasa.data.SubscriptionEntity
@@ -144,8 +145,13 @@ object ForecastMath {
             .map { Upcoming(it.name, LocalDate.ofEpochDay(it.nextDueEpochDay), -it.amountCents) } +
             loans.filter { it.remainingInstallments > 0 && inRange(it.nextDueEpochDay) }
                 .map { Upcoming(it.name, LocalDate.ofEpochDay(it.nextDueEpochDay), -it.installmentCents) } +
-            recurring.filter { it.active && inRange(it.nextDueEpochDay) }
-                .map { Upcoming(it.title, LocalDate.ofEpochDay(it.nextDueEpochDay), it.amountCents) }
+            recurring.filter { it.active }.flatMap { r ->
+                // Le settimanali possono cadere più volte nel mese: si contano tutte quelle che restano
+                val dates = generateSequence(LocalDate.ofEpochDay(r.nextDueEpochDay)) {
+                    if (r.cadence == Cadence.WEEKLY) it.plusWeeks(1) else null
+                }.takeWhile { !it.isAfter(end) }.filter { !it.isBefore(today) }
+                dates.map { Upcoming(r.title, it, r.amountCents) }.toList()
+            }
     }
 
     /**

@@ -19,6 +19,14 @@ class RecurringScheduleTest {
     }
 
     @Test
+    fun weeklyMovesSevenDaysKeepingTheWeekday() {
+        val next = RecurringSchedule.following(LocalDate.of(2026, 11, 9), Cadence.WEEKLY, 9)
+        assertEquals(LocalDate.of(2026, 11, 16), next)
+        assertEquals(next.dayOfWeek, LocalDate.of(2026, 11, 9).dayOfWeek)
+        assertEquals(LocalDate.of(2027, 1, 4), RecurringSchedule.following(LocalDate.of(2026, 12, 28), Cadence.WEEKLY, 28))
+    }
+
+    @Test
     fun yearlyMovesToTheNextYear() {
         assertEquals(LocalDate.of(2027, 3, 15), RecurringSchedule.following(LocalDate.of(2026, 3, 15), Cadence.YEARLY, 15))
     }

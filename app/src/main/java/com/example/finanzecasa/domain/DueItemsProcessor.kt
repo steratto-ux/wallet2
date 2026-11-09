@@ -80,11 +80,7 @@ class DueItemsProcessor(private val db: AppDatabase) {
                         amountCents = -s.amountCents, dateMillis = next.atStartOfDay().toMillis()
                     )
                 )
-                val ym = YearMonth.from(next)
-                next = when (s.cadence) {
-                    Cadence.MONTHLY -> DateUtil.clamp(ym.plusMonths(1), s.anchorDay)
-                    Cadence.YEARLY -> DateUtil.clamp(ym.plusYears(1), s.anchorDay)
-                }
+                next = RecurringSchedule.following(next, s.cadence, s.anchorDay)
             }
             dao.updateSubscription(s.copy(nextDueEpochDay = next.toEpochDay()))
         }
@@ -119,11 +115,7 @@ class DueItemsProcessor(private val db: AppDatabase) {
                         amountCents = r.amountCents, dateMillis = next.atStartOfDay().toMillis()
                     )
                 )
-                val ym = YearMonth.from(next)
-                next = when (r.cadence) {
-                    Cadence.MONTHLY -> DateUtil.clamp(ym.plusMonths(1), r.anchorDay)
-                    Cadence.YEARLY -> DateUtil.clamp(ym.plusYears(1), r.anchorDay)
-                }
+                next = RecurringSchedule.following(next, r.cadence, r.anchorDay)
             }
             dao.updateRecurring(r.copy(nextDueEpochDay = next.toEpochDay()))
         }

@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.finanzecasa.data.AccountBalance
 import com.example.finanzecasa.data.AccountType
@@ -311,7 +312,13 @@ private fun Greeting(modifier: Modifier = Modifier) {
     val name by settings.userNameFlow().collectAsState(initial = settings.userName())
     val now by minuteClock().collectAsState(initial = java.time.LocalDateTime.now())
     val text = greetingText(now.hour, name)
-    Text(text, style = MaterialTheme.typography.headlineSmall, modifier = modifier, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    // Il saluto parte con il carattere grande e si rimpicciolisce finché sta tutto su una riga
+    var sizeSp by remember(text) { mutableStateOf(24f) }
+    Text(
+        text, style = MaterialTheme.typography.headlineSmall, fontSize = sizeSp.sp, modifier = modifier,
+        maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
+        onTextLayout = { if (it.didOverflowWidth && sizeSp > 12f) sizeSp = maxOf(12f, sizeSp * 0.92f) }
+    )
 }
 
 /** "Buongiorno Stefano!", "Buon pomeriggio Stefano!"... */

@@ -124,6 +124,18 @@ class AnalysisTest {
         assertEquals(200_000L - 1_299L - 25_000L, up.sumOf { it.cents })
     }
 
+    @Test fun weeklyRecurringCountsEveryOccurrenceLeftInTheMonth() {
+        val today = LocalDate.of(2026, 11, 10)
+        val recs = listOf(
+            RecurringEntity(title = "Paghetta", amountCents = -1_000, cadence = Cadence.WEEKLY, anchorDay = 12,
+                nextDueEpochDay = LocalDate.of(2026, 11, 12).toEpochDay(), accountId = 1)
+        )
+        val up = ForecastMath.configuredUpcoming(emptyList(), emptyList(), recs, today)
+        // 12, 19 e 26 novembre
+        assertEquals(listOf(12, 19, 26), up.map { it.date.dayOfMonth })
+        assertEquals(-3_000L, up.sumOf { it.cents })
+    }
+
     @Test fun patternUpcomingSkipsConfiguredSeenAndPassedItems() {
         val today = LocalDate.of(2026, 11, 10)
         val fixed = listOf(

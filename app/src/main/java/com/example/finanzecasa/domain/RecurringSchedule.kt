@@ -11,6 +11,7 @@ object RecurringSchedule {
         return when (cadence) {
             Cadence.MONTHLY -> DateUtil.clamp(ym.plusMonths(1), anchorDay)
             Cadence.YEARLY -> DateUtil.clamp(ym.plusYears(1), anchorDay)
+            Cadence.WEEKLY -> due.plusWeeks(1) // stesso giorno della settimana
         }
     }
 }

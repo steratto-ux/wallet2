@@ -35,7 +35,11 @@ import com.example.finanzecasa.data.SubscriptionEntity
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
-private fun cadenceLabel(c: Cadence) = if (c == Cadence.MONTHLY) "Mensile" else "Annuale"
+private fun cadenceLabel(c: Cadence) = when (c) {
+    Cadence.WEEKLY -> "Settimanale"
+    Cadence.MONTHLY -> "Mensile"
+    Cadence.YEARLY -> "Annuale"
+}
 
 @Composable
 fun SubscriptionsScreen(onBack: () -> Unit, onOpenForm: (Long?) -> Unit, vm: ManageViewModel = viewModel()) {
@@ -44,7 +48,7 @@ fun SubscriptionsScreen(onBack: () -> Unit, onOpenForm: (Long?) -> Unit, vm: Man
     val accountNames = accounts.associate { it.id to it.name }
 
     val active = subs.filter { it.active }
-    val yearlyCents = active.sumOf { if (it.cadence == Cadence.MONTHLY) it.amountCents * 12 else it.amountCents }
+    val yearlyCents = active.sumOf { when (it.cadence) { Cadence.WEEKLY -> it.amountCents * 52; Cadence.MONTHLY -> it.amountCents * 12; Cadence.YEARLY -> it.amountCents } }
 
     ScreenScaffold(
         title = "Abbonamenti", onBack = onBack,
