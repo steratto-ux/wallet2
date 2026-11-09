@@ -72,11 +72,6 @@ class AppSettings(context: Context) {
     fun userName(): String = prefs.getString("user_name", "") ?: ""
     fun setUserName(name: String) { prefs.edit().putString("user_name", name.trim()).apply() }
 
-    // --- Widget: saldo totale visibile (per ogni widget)
-    fun widgetShowBalance(widgetId: Int): Boolean = prefs.getBoolean("widget_balance_$widgetId", true)
-    fun setWidgetShowBalance(widgetId: Int, on: Boolean) { prefs.edit().putBoolean("widget_balance_$widgetId", on).apply() }
-    fun clearWidget(widgetId: Int) { prefs.edit().remove("widget_balance_$widgetId").apply() }
-
     /** Emette il valore di [read] subito e ogni volta che cambia una delle [keys]. */
     fun <T> changes(vararg keys: String, read: () -> T): Flow<T> = callbackFlow {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->

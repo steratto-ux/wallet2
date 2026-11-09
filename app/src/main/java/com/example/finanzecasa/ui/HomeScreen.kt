@@ -143,8 +143,8 @@ fun HomeScreen(
             // 2. Spese ed entrate del mese in corso
             item {
                 Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SummaryBox("Spese del mese", formatMoney(state.monthExpensesCents), MaterialTheme.colorScheme.error, Modifier.weight(1f).fillMaxHeight())
                     SummaryBox("Entrate del mese", formatMoney(state.monthIncomeCents), MaterialTheme.colorScheme.income, Modifier.weight(1f).fillMaxHeight())
+                    SummaryBox("Spese del mese", formatMoney(state.monthExpensesCents), MaterialTheme.colorScheme.error, Modifier.weight(1f).fillMaxHeight())
                 }
             }
 
@@ -156,8 +156,16 @@ fun HomeScreen(
                         TextButton(onClick = { onOpen("budgets") }) { Text("Gestisci") }
                     }
                 }
-                items(state.budgets, key = { "budget-${it.id}" }) { b ->
-                    BudgetCard(b, state.now, onHistory = { onOpenBudgetHistory(b.id) }, onClick = { onOpenBudget(b.id) })
+                item {
+                    // Come gli account: schede affiancate che scorrono in orizzontale
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(state.budgets, key = { "budget-${it.id}" }) { b ->
+                            BudgetCard(
+                                b, state.now, Modifier.width(300.dp),
+                                onHistory = { onOpenBudgetHistory(b.id) }, onClick = { onOpenBudget(b.id) }
+                            )
+                        }
+                    }
                 }
             }
 

@@ -84,6 +84,17 @@ class TransactionsViewModel(application: Application) : AndroidViewModel(applica
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** Totale dell'elenco visualizzato (con gli stessi filtri). */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val total: StateFlow<Long> = filter.flatMapLatest { f ->
+        dao.observeTotal(
+            f.accountId, f.text,
+            f.from?.atStartOfDay()?.toMillis(),
+            f.to?.plusDays(1)?.atStartOfDay()?.toMillis(),
+            f.type.code, f.categoryId
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
+
     private val sources = combine(
         dao.observeSubscriptions(), dao.observeLoans(), dao.observeRecurring(), dao.observeAccounts(), dao.observeCategories()
     ) { s, l, r, a, c -> ScheduleSources(s, l, r, a, c) }

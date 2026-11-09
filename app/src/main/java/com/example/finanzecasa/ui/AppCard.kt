@@ -77,31 +77,29 @@ fun NavIconButton(icon: ImageVector, description: String, onClick: () -> Unit, m
 }
 
 /**
- * Pulsante a tutta larghezza (4 x 1) con icona a sinistra e testo a destra: sfondo sfumato viola-blu
- * e contorno dorato, per dare l'idea di una funzione in più.
+ * Pulsante a tutta larghezza (4 x 1): stesso sfondo dei pulsanti rapidi, bordo dorato, icona a sinistra
+ * e testo su una riga a destra dell'icona.
  */
 @Composable
 fun NavWideButton(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val shape = MaterialTheme.shapes.large
-    val fill = Brush.horizontalGradient(listOf(Color(0xFF5B3FD0), Color(0xFF2F6FE0)))
-    val outline = Brush.horizontalGradient(listOf(Color(0xFFFFD36B), Color(0xFFE89B2D), Color(0xFFFFD36B)))
     Row(
         modifier.clip(shape)
-            .background(fill, shape)
-            .border(2.dp, outline, shape)
+            .background(MaterialTheme.colorScheme.primaryContainer, shape)
+            .border(2.dp, Color(0xFFD4AF37), shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 18.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(26.dp))
         Text(
             label,
             style = MaterialTheme.typography.titleMedium,
-            fontStyle = FontStyle.Italic, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Serif,
-            letterSpacing = 1.5.sp, color = Color.White,
+            fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onPrimaryContainer,
+            maxLines = 1, softWrap = false,
             modifier = Modifier.weight(1f)
         )
-        Icon(Icons.Outlined.AutoAwesome, contentDescription = null, tint = Color(0xFFFFD36B), modifier = Modifier.size(20.dp))
     }
 }

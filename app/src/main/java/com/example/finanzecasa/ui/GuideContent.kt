@@ -42,10 +42,10 @@ val guideSections: List<GuideSection> = listOf(
             bullets(
                 "Saluto: cambia con l'ora del giorno (Buongiorno, Buon pomeriggio, Buonasera) e usa il nome che scrivi in Configurazione. A destra c'è l'ingranaggio della Configurazione.",
                 "Pulsanti rapidi: due righe di icone che aprono Categorie, Budget, Abbonamenti, Prestiti, Ricorrenti, Obiettivi, Report e Transazioni.",
-                "ANALISI ECONOMICA: il pulsante viola con il bordo dorato apre le analisi (previsione, regola 50/30/20, spese fisse e variabili, simulatore, piccole spese).",
+                "ANALISI ECONOMICA: il pulsante con il bordo dorato apre le analisi (previsione, regola 50/30/20, spese fisse e variabili, simulatore, piccole spese).",
                 "Account: i riquadri che scorrono in orizzontale. Ognuno ha colore e icona scelti da te, il nome e il saldo (in rosso se è negativo). Toccandolo lo modifichi; l'ultimo riquadro, Nuovo account, ne crea uno.",
-                "Spese del mese ed Entrate del mese: il totale dal giorno 1 a oggi. I trasferimenti tra i tuoi account non contano, perché i soldi non escono dal tuo patrimonio.",
-                "Budget: una scheda per ogni budget, con la barra che si riempie man mano che spendi. La percentuale è al centro, l'indicatore Oggi mostra a che punto del mese sei: se la barra è più avanti di Oggi stai spendendo più in fretta del previsto. Sotto vedi quanto puoi ancora spendere al giorno oppure di quanto hai sforato.",
+                "Entrate del mese (a sinistra) e Spese del mese (a destra): il totale dal giorno 1 a oggi. I trasferimenti tra i tuoi account non contano, perché i soldi non escono dal tuo patrimonio.",
+                "Budget: una scheda per ogni budget, affiancate e scorrevoli in orizzontale come gli account, con la barra che si riempie man mano che spendi. La percentuale è al centro, l'indicatore Oggi mostra a che punto del mese sei: se la barra è più avanti di Oggi stai spendendo più in fretta del previsto. Sotto vedi quanto puoi ancora spendere al giorno oppure di quanto hai sforato.",
                 "Spese per categoria: la ciambella del mese. Ogni colore è una categoria principale, con importo e percentuale sul totale. Le frecce cambiano mese; toccando una categoria vedi le sue sotto-categorie.",
                 "Patrimonio netto: la somma dei saldi di tutti gli account (carte di credito comprese, che di solito sono negative). Il grafico mostra l'andamento; con 1 mese, 3 mesi, 6 mesi o 1 anno scegli quanto indietro guardare. Se in Configurazione attivi Includi i debiti dei prestiti, il capitale ancora da restituire viene sottratto.",
                 "Ultime transazioni: le ultime registrate. Vedi tutte apre l'elenco completo con la ricerca.",
@@ -175,6 +175,7 @@ val guideSections: List<GuideSection> = listOf(
                 "Categoria: scegliendo una categoria principale vedi anche tutte le sue sotto-categorie.",
                 "Account.",
                 "Date: dal… al…, con gli estremi compresi.",
+                "Totale: in alto, a destra, la somma dell'elenco che stai guardando (entrate meno uscite). I trasferimenti non cambiano il patrimonio, quindi non contano, a meno che non cerchi solo i trasferimenti: allora vedi quanto hai spostato.",
                 "Scadenze future: l'interruttore Mostra le scadenze future aggiunge in alto la sezione In arrivo."
             ),
             par(
@@ -351,14 +352,11 @@ val guideSections: List<GuideSection> = listOf(
     GuideSection(
         "Il widget",
         listOf(
-            par("Il widget sulla schermata del telefono mostra la regola 50/30/20 del mese in corso, con le stesse tre barre dell'analisi."),
+            par("Il widget è un solo pulsante, grande 2 x 1, da mettere sulla schermata del telefono: serve a inserire una transazione in un attimo."),
             bullets(
-                "Aggiungerlo: tieni premuto sulla schermata del telefono, scegli Widget, cerca Il mio wallet e trascinalo. Si apre una schermata di scelta.",
-                "Mostra il saldo totale: un interruttore. Se è spento il saldo non compare. Con il blocco dell'app attivo il saldo e gli importi sono sempre nascosti.",
-                "Barre: percentuale raggiunta, obiettivo (50, 30, 20) e stato (Entro l'obiettivo, Oltre di…, Mancano…).",
-                "+ Nuova transazione: apre subito il modulo di inserimento.",
-                "Toccare il grafico apre l'Analisi.",
-                "Il widget si aggiorna da solo a intervalli regolari e ogni volta che apri l'app."
+                "Aggiungerlo: tieni premuto sulla schermata del telefono, scegli Widget, cerca Il mio wallet e trascinalo dove vuoi.",
+                "Usarlo: toccando + Nuova transazione si apre l'app direttamente sul modulo di inserimento, con la tastiera pronta per l'importo.",
+                "Riservatezza: non mostra saldi né importi, quindi non c'è nulla da nascondere. Se è attivo il blocco dell'app, prima dell'inserimento viene chiesto lo sblocco."
             )
         )
     ),

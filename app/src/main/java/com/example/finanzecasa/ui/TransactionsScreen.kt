@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.MaterialTheme
@@ -42,6 +43,7 @@ fun TransactionsScreen(
 ) {
     val rows by vm.rows.collectAsState()
     val scheduled by vm.scheduled.collectAsState()
+    val total by vm.total.collectAsState()
     val categories by vm.categories.collectAsState()
     val typeFilter by vm.typeFilter.collectAsState()
     val categoryFilter by vm.categoryFilter.collectAsState()
@@ -104,8 +106,24 @@ fun TransactionsScreen(
                             Text(toDate?.let { "Al ${formatDate(it)}" } ?: "Al…", maxLines = 1)
                         }
                     }
-                    if (fromDate != null || toDate != null) {
-                        TextButton(onClick = { vm.fromDate.value = null; vm.toDate.value = null }) { Text("Azzera le date") }
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        if (fromDate != null || toDate != null) {
+                            TextButton(onClick = { vm.fromDate.value = null; vm.toDate.value = null }) { Text("Azzera le date") }
+                        }
+                        Spacer(Modifier.weight(1f))
+                        // Totale dell'elenco che si sta guardando (entrate meno uscite)
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("Totale", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                (if (total > 0) "+" else "") + formatMoney(total),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = when {
+                                    total < 0 -> MaterialTheme.colorScheme.error
+                                    total > 0 -> MaterialTheme.colorScheme.income
+                                    else -> MaterialTheme.colorScheme.onSurface
+                                }
+                            )
+                        }
                     }
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {

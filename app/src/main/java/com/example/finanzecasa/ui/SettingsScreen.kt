@@ -265,7 +265,7 @@ fun SettingsScreen(
                 SwitchRow(
                     "Blocco dell'app",
                     "All'apertura chiede lo sblocco del telefono (impronta, PIN, sequenza o password). " +
-                        "Nasconde anche il saldo nel widget e le anteprime nelle app recenti.",
+                        "Nasconde anche le anteprime nelle app recenti.",
                     lock
                 ) { on ->
                     val keyguard = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
@@ -351,6 +351,14 @@ fun SettingsScreen(
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
                 ) { Text("Esporta CSV") }
             }
+            val versionLabel = remember {
+                runCatching {
+                    val info = context.packageManager.getPackageInfo(context.packageName, 0)
+                    val code = if (android.os.Build.VERSION.SDK_INT >= 28) info.longVersionCode else @Suppress("DEPRECATION") info.versionCode.toLong()
+                    "Il mio wallet · versione ${info.versionName} (build $code)"
+                }.getOrDefault("Il mio wallet")
+            }
+            Text(versionLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             message?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary) }
             if (status.isNotEmpty()) Text(status, style = MaterialTheme.typography.bodyMedium)
         }

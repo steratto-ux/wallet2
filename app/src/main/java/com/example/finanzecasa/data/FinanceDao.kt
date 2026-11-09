@@ -218,6 +218,38 @@ interface FinanceDao {
         typeFilter: Int, categoryId: Long?, limit: Int
     ): Flow<List<TransactionRow>>
 
+    /**
+     * Totale dell'elenco filtrato come sopra: entrate meno uscite. I trasferimenti non cambiano il patrimonio,
+     * quindi non contano, salvo quando si cercano solo i trasferimenti (allora è la somma spostata).
+     */
+    @Query(
+        """SELECT COALESCE(SUM(CASE WHEN t.kind = 'NORMAL' THEN t.amountCents
+                                    WHEN :typeFilter = 3 THEN -t.amountCents
+                                    ELSE 0 END), 0)
+           FROM transactions t
+           JOIN accounts a ON a.id = t.accountId
+           LEFT JOIN categories c ON c.id = t.categoryId
+           LEFT JOIN categories p ON p.id = c.parentId
+           WHERE (t.kind = 'NORMAL' OR t.amountCents < 0)
+             AND (:accountId IS NULL OR t.accountId = :accountId OR EXISTS (
+                   SELECT 1 FROM transactions t3
+                   WHERE t3.transferGroupId = t.transferGroupId AND t3.accountId = :accountId))
+             AND (:query = '' OR t.title LIKE '%' || :query || '%' OR t.note LIKE '%' || :query || '%'
+                  OR c.name LIKE '%' || :query || '%' OR p.name LIKE '%' || :query || '%'
+                  OR t.tags LIKE '%' || :query || '%')
+             AND (:fromMillis IS NULL OR t.dateMillis >= :fromMillis)
+             AND (:toMillis IS NULL OR t.dateMillis < :toMillis)
+             AND (:typeFilter = 0
+                  OR (:typeFilter = 1 AND t.kind = 'NORMAL' AND t.amountCents > 0)
+                  OR (:typeFilter = 2 AND t.kind = 'NORMAL' AND t.amountCents < 0)
+                  OR (:typeFilter = 3 AND t.kind = 'TRANSFER'))
+             AND (:categoryId IS NULL OR c.id = :categoryId OR c.parentId = :categoryId)"""
+    )
+    fun observeTotal(
+        accountId: Long?, query: String, fromMillis: Long?, toMillis: Long?,
+        typeFilter: Int, categoryId: Long?
+    ): Flow<Long>
+
     // --- Grafico del saldo
     @Query("SELECT COALESCE(SUM(initialBalanceCents), 0) FROM accounts")
     fun observeInitialTotal(): Flow<Long>
