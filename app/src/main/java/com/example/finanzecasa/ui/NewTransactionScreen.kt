@@ -93,6 +93,7 @@ internal fun buildCategoryOptions(all: List<CategoryEntity>): List<CategoryOptio
 fun NewTransactionScreen(
     transactionId: Long? = null,
     onClose: () -> Unit,
+    initialDate: LocalDate? = null,   // nuova transazione su un giorno scelto (dal calendario)
     vm: NewTransactionViewModel = viewModel()
 ) {
     val allAccounts by vm.accounts.collectAsState()
@@ -107,7 +108,11 @@ fun NewTransactionScreen(
     var selectedAccountId by rememberSaveable { mutableStateOf<Long?>(null) }
     var selectedToId by rememberSaveable { mutableStateOf<Long?>(null) }
     var categoryId by rememberSaveable { mutableStateOf<Long?>(null) }
-    var dateTime by rememberSaveable { mutableStateOf(LocalDateTime.now().truncatedTo(ChronoUnit.MINUTES)) }
+    var dateTime by rememberSaveable {
+        mutableStateOf(
+            (initialDate?.atTime(LocalTime.now()) ?: LocalDateTime.now()).truncatedTo(ChronoUnit.MINUTES)
+        )
+    }
     var error by remember { mutableStateOf<String?>(null) }
     var showDate by remember { mutableStateOf(false) }
     var showTime by remember { mutableStateOf(false) }

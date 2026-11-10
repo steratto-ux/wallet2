@@ -118,6 +118,25 @@ interface FinanceDao {
     )
     fun observeRecent(toMillis: Long, limit: Int): Flow<List<TransactionRow>>
 
+    /** Transazioni di un intervallo (anche future), per la vista calendario. */
+    @Query(
+        """SELECT t.id AS id, t.title AS title, t.amountCents AS amountCents, t.dateMillis AS dateMillis,
+                  t.kind AS kind, a.name AS accountName,
+                  (SELECT a2.name FROM transactions t2 JOIN accounts a2 ON a2.id = t2.accountId
+                   WHERE t2.transferGroupId = t.transferGroupId AND t2.id <> t.id LIMIT 1) AS counterpartName,
+                  c.name AS categoryName, c.icon AS categoryIcon,
+                  p.name AS parentCategoryName, p.icon AS parentCategoryIcon,
+                  t.tags AS tags, t.receiptPath AS receiptPath
+           FROM transactions t
+           JOIN accounts a ON a.id = t.accountId
+           LEFT JOIN categories c ON c.id = t.categoryId
+           LEFT JOIN categories p ON p.id = c.parentId
+           WHERE t.dateMillis >= :fromMillis AND t.dateMillis < :toMillis
+             AND (t.kind = 'NORMAL' OR (t.kind = 'TRANSFER' AND t.amountCents < 0))
+           ORDER BY t.dateMillis ASC, t.id ASC"""
+    )
+    fun observeInRange(fromMillis: Long, toMillis: Long): Flow<List<TransactionRow>>
+
     @Query("SELECT * FROM categories ORDER BY name")
     fun observeCategories(): Flow<List<CategoryEntity>>
 

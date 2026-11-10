@@ -71,14 +71,26 @@ fun SpendDonutCard(
     val canGoForward = month.isBefore(YearMonth.now())
 
     AppCard(modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Spese per categoria", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+        // Titolo su una sola riga; sotto, centrato, il mese con le frecce per scorrere nel tempo
+        Text(
+            "Spese per categoria", style = MaterialTheme.typography.titleMedium,
+            maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
             IconButton(onClick = { onShiftMonth(-1) }) {
                 Icon(Icons.Outlined.ChevronLeft, contentDescription = "Mese precedente")
             }
             Text(
                 month.format(monthFmt).replaceFirstChar { it.uppercase() },
-                style = MaterialTheme.typography.labelLarge
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1, softWrap = false,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(140.dp)
             )
             IconButton(onClick = { onShiftMonth(1) }, enabled = canGoForward) {
                 Icon(Icons.Outlined.ChevronRight, contentDescription = "Mese successivo")

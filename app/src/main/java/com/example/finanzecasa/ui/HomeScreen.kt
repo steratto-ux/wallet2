@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Autorenew
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Speed
@@ -110,6 +111,7 @@ fun HomeScreen(
             }
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    NavFullButton(Icons.Outlined.CalendarMonth, "CALENDARIO", { onOpen("calendar") }, Modifier.fillMaxWidth())
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         NavIconButton(Icons.AutoMirrored.Outlined.FormatListBulleted, "Categorie", { onOpen("categories") }, Modifier.weight(1f))
                         NavIconButton(Icons.Outlined.Speed, "Budget", { onOpen("budgets") }, Modifier.weight(1f))

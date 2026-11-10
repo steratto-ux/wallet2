@@ -78,7 +78,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     dao.observeBalances(upTo),
                     dao.observeExpenses(monthStart, upTo),
                     dao.observeIncome(monthStart, upTo),
-                    dao.observeRecent(upTo, 15),
+                    dao.observeRecent(upTo, 10),
                     combine(dao.observeLoans(), includeLoans) { loans, include ->
                         if (include) NetWorthMath.loanDebtCents(loans) else 0L
                     }

@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.finanzecasa.alerts.AlertsChecker
 import com.example.finanzecasa.domain.DueItemsProcessor
 import com.example.finanzecasa.ui.AccountFormScreen
@@ -48,6 +49,8 @@ import com.example.finanzecasa.ui.AppTheme
 import com.example.finanzecasa.ui.BudgetHistoryScreen
 import com.example.finanzecasa.ui.BudgetFormScreen
 import com.example.finanzecasa.ui.BudgetsScreen
+import com.example.finanzecasa.ui.CalendarScreen
+import com.example.finanzecasa.ui.CalendarViewModel
 import com.example.finanzecasa.ui.CategoriesScreen
 import com.example.finanzecasa.ui.GoalFormScreen
 import com.example.finanzecasa.ui.GoalsScreen
@@ -188,10 +191,12 @@ private fun AppRoot(
     var route by rememberSaveable { mutableStateOf("home") }
     var editId by rememberSaveable { mutableStateOf<Long?>(null) }
     var returnTo by rememberSaveable { mutableStateOf("home") } // dove tornare dopo aver modificato transazione o budget
+    val calendarVm: CalendarViewModel = viewModel()
+    var newTxDay by rememberSaveable { mutableStateOf<Long?>(null) } // giorno (epoch day) scelto dal calendario per una nuova transazione
 
     // Richiesta dal widget: "+ Nuova transazione"
     LaunchedEffect(openRequest) {
-        if (openRequest == WalletWidgetProvider.OPEN_NEW_TRANSACTION) route = "newTransaction"
+        if (openRequest == WalletWidgetProvider.OPEN_NEW_TRANSACTION) { newTxDay = null; returnTo = "home"; route = "newTransaction" }
         if (openRequest == WalletWidgetProvider.OPEN_ANALYSIS) route = "analysis"
         if (openRequest != null) onOpenHandled()
     }
@@ -202,14 +207,19 @@ private fun AppRoot(
             "irregularForm" -> "irregular"
             "goalForm" -> "goals"
             "accountsOrder", "guide" -> "settings"
-            "editTransaction", "budgetForm", "budgetHistory" -> returnTo
+            "newTransaction", "editTransaction", "budgetForm", "budgetHistory" -> returnTo
             else -> "home"
         }
     }
     if (route != "home") BackHandler(onBack = back)
 
     when (route) {
-        "newTransaction" -> NewTransactionScreen(onClose = back)
+        "newTransaction" -> NewTransactionScreen(initialDate = newTxDay?.let { LocalDate.ofEpochDay(it) }, onClose = back)
+        "calendar" -> CalendarScreen(
+            onBack = back,
+            onAddTransaction = { day -> newTxDay = day.toEpochDay(); returnTo = "calendar"; route = "newTransaction" },
+            onOpenTransaction = { editId = it; returnTo = "calendar"; route = "editTransaction" }
+        )
         "editTransaction" -> NewTransactionScreen(transactionId = editId, onClose = back)
         "transactions" -> TransactionsScreen(
             onBack = back,
@@ -247,10 +257,10 @@ private fun AppRoot(
             onBack = back
         )
         else -> HomeScreen(
-            onAddTransaction = { route = "newTransaction" },
+            onAddTransaction = { newTxDay = null; returnTo = "home"; route = "newTransaction" },
             onNewAccount = { editId = null; route = "account" },
             onEditAccount = { editId = it; route = "account" },
-            onOpen = { route = it },
+            onOpen = { if (it == "calendar") calendarVm.reset(); route = it },
             onOpenTransaction = { editId = it; returnTo = "home"; route = "editTransaction" },
             onOpenBudget = { editId = it; returnTo = "home"; route = "budgetForm" },
             onOpenBudgetHistory = { editId = it; returnTo = "home"; route = "budgetHistory" },

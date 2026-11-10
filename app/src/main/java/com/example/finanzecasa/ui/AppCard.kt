@@ -77,6 +77,32 @@ fun NavIconButton(icon: ImageVector, description: String, onClick: () -> Unit, m
 }
 
 /**
+ * Pulsante a tutta larghezza con la stessa grafica dei pulsanti rapidi (sfondo e forma), icona e scritta
+ * al centro. Usato per il Calendario, subito sotto il saluto.
+ */
+@Composable
+fun NavFullButton(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier.clip(MaterialTheme.shapes.large)
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .clickable(onClick = onClick)
+            .padding(vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(26.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            maxLines = 1, softWrap = false,
+            modifier = Modifier.padding(start = 12.dp)
+        )
+    }
+}
+
+/**
  * Pulsante a tutta larghezza (4 x 1): stesso sfondo dei pulsanti rapidi, bordo dorato, icona a sinistra
  * e testo su una riga a destra dell'icona.
  */

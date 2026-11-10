@@ -41,14 +41,15 @@ val guideSections: List<GuideSection> = listOf(
             par("Dall'alto verso il basso la schermata principale contiene:"),
             bullets(
                 "Saluto: cambia con l'ora del giorno (Buongiorno, Buon pomeriggio, Buonasera) e usa il nome che scrivi in Configurazione. A destra c'è l'ingranaggio della Configurazione.",
+                "CALENDARIO: il pulsante a tutta larghezza sotto il saluto apre la vista calendario (vedi la sezione dedicata più sotto).",
                 "Pulsanti rapidi: tre righe di icone che aprono Categorie, Budget, Abbonamenti, Prestiti, Ricorrenti, Spese irregolari, Obiettivi, Report e Transazioni.",
                 "ANALISI ECONOMICA: il pulsante con il bordo dorato apre le analisi (previsione, regola 50/30/20, spese fisse e variabili, simulatore, piccole spese).",
                 "Account: i riquadri che scorrono in orizzontale. Ognuno ha colore e icona scelti da te, il nome e il saldo (in rosso se è negativo). Toccandolo lo modifichi; l'ultimo riquadro, Nuovo account, ne crea uno.",
                 "Entrate del mese (a sinistra) e Spese del mese (a destra): il totale dal giorno 1 a oggi. I trasferimenti tra i tuoi account non contano, perché i soldi non escono dal tuo patrimonio.",
                 "Budget: una scheda per ogni budget, affiancate e scorrevoli in orizzontale come gli account, con la barra che si riempie man mano che spendi. La percentuale è al centro, l'indicatore Oggi mostra a che punto del mese sei: se la barra è più avanti di Oggi stai spendendo più in fretta del previsto. Sotto vedi quanto puoi ancora spendere al giorno oppure di quanto hai sforato.",
-                "Spese per categoria: la ciambella del mese. Ogni colore è una categoria principale, con importo e percentuale sul totale. Le frecce cambiano mese; toccando una categoria vedi le sue sotto-categorie.",
+                "Spese per categoria: la ciambella del mese. Ogni colore è una categoria principale, con importo e percentuale sul totale. Il titolo sta su una riga e sotto, al centro, c'è il mese con le frecce per andare indietro e avanti; toccando una categoria vedi le sue sotto-categorie.",
                 "Patrimonio netto: la somma dei saldi di tutti gli account (carte di credito comprese, che di solito sono negative). Il grafico mostra l'andamento; con 1 mese, 3 mesi, 6 mesi o 1 anno scegli quanto indietro guardare. Se in Configurazione attivi Includi i debiti dei prestiti, il capitale ancora da restituire viene sottratto.",
-                "Ultime transazioni: le ultime registrate. Vedi tutte apre l'elenco completo con la ricerca.",
+                "Ultime transazioni: le ultime 10 registrate. Vedi tutte apre l'elenco completo con la ricerca.",
                 "Pulsante +: in basso a destra, crea una nuova transazione."
             ),
             par("Come si legge una riga di transazione:"),
@@ -62,6 +63,20 @@ val guideSections: List<GuideSection> = listOf(
         )
     ),
 
+
+    GuideSection(
+        "Il calendario",
+        listOf(
+            par("Dal pulsante CALENDARIO della schermata principale vedi il mese come una griglia, da lunedì a domenica."),
+            bullets(
+                "Mesi: in alto i nomi del mese precedente, di quello mostrato (in grassetto) e del successivo. Scorri la griglia a destra e a sinistra, oppure tocca i nomi laterali. Oggi riporta al mese e al giorno corrente.",
+                "Totali del mese: sotto i nomi trovi le uscite (freccia rossa in giù), le entrate (freccia verde in su) e il saldo del mese dopo il segno =. Comprendono anche le transazioni con data futura dello stesso mese; i trasferimenti non contano.",
+                "Ogni giorno mostra dei puntini e un importo: rosso se ci sono uscite, verde se ci sono entrate, grigio per i trasferimenti, azzurro per le cose ancora da venire (transazioni con data futura, abbonamenti, rate e ricorrenti previste). L'importo è il saldo di quel giorno, entrate meno uscite; 0 € se non c'è nulla. I giorni con movimenti hanno un bordo, oggi è evidenziato.",
+                "Tocca un giorno per selezionarlo: in basso compare l'elenco delle sue transazioni (toccane una per modificarla) e, sotto Previste, le scadenze programmate di quel giorno.",
+                "Il + sul giorno selezionato apre una nuova transazione già con quella data: dopo il salvataggio torni al calendario."
+            )
+        )
+    ),
     GuideSection(
         "Registrare una transazione",
         listOf(
