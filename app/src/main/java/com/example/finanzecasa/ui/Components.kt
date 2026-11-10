@@ -102,12 +102,18 @@ fun <T> SegmentedChoice(options: List<Pair<T, String>>, selected: T, onSelect: (
 
 @Composable
 fun AccountField(label: String, accounts: List<AccountEntity>, selectedId: Long?, onSelect: (Long) -> Unit) {
+    // Gli account nascosti non si possono scegliere, a meno che non sia già quello in uso
+    val choices = accounts.filter { !it.hidden || it.id == selectedId }
     DropdownField(
         label = label,
         value = accounts.firstOrNull { it.id == selectedId }?.name ?: "Nessun account",
-        entries = accounts.map { a -> a.name to { onSelect(a.id) } }
+        entries = choices.map { a -> a.name to { onSelect(a.id) } }
     )
 }
+
+/** Account che si possono scegliere in un modulo: quelli non nascosti più, se serve, quelli già in uso. */
+fun selectableAccounts(all: List<AccountEntity>, vararg inUse: Long?): List<AccountEntity> =
+    all.filter { !it.hidden || it.id in inUse }
 
 @Composable
 fun CategoryField(

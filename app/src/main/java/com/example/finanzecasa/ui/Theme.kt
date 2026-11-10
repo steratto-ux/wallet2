@@ -135,6 +135,7 @@ fun accountTint(type: AccountType, dark: Boolean): Color = when (type) {
     AccountType.BANK -> if (dark) Color(0xFF8DB6F2) else Color(0xFF3F7BD1)
     AccountType.CASH -> if (dark) Color(0xFF5FD39B) else Color(0xFF1E9E6A)
     AccountType.CREDIT_CARD -> if (dark) Color(0xFFF2B766) else Color(0xFFE0892B)
+    AccountType.INVESTMENT -> if (dark) Color(0xFFBEA2F0) else Color(0xFF8A63D2)
 }
 
 /** Stile del numero grande (saldi, patrimonio). */

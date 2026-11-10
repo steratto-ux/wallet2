@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.Autorenew
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.EventRepeat
+import androidx.compose.material.icons.outlined.Savings
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Receipt
 import androidx.compose.material.icons.outlined.BarChart
@@ -113,10 +114,13 @@ fun HomeScreen(
                         NavIconButton(Icons.AutoMirrored.Outlined.FormatListBulleted, "Categorie", { onOpen("categories") }, Modifier.weight(1f))
                         NavIconButton(Icons.Outlined.Speed, "Budget", { onOpen("budgets") }, Modifier.weight(1f))
                         NavIconButton(Icons.Outlined.Autorenew, "Abbonamenti", { onOpen("subscriptions") }, Modifier.weight(1f))
-                        NavIconButton(Icons.Outlined.AccountBalance, "Prestiti", { onOpen("loans") }, Modifier.weight(1f))
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        NavIconButton(Icons.Outlined.AccountBalance, "Prestiti", { onOpen("loans") }, Modifier.weight(1f))
                         NavIconButton(Icons.Outlined.EventRepeat, "Ricorrenti", { onOpen("recurring") }, Modifier.weight(1f))
+                        NavIconButton(Icons.Outlined.Savings, "Spese irregolari", { onOpen("irregular") }, Modifier.weight(1f))
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         NavIconButton(Icons.Outlined.Flag, "Obiettivi", { onOpen("goals") }, Modifier.weight(1f))
                         NavIconButton(Icons.Outlined.BarChart, "Report", { onOpen("reports") }, Modifier.weight(1f))
                         NavIconButton(Icons.Outlined.Receipt, "Transazioni", { onOpen("transactions") }, Modifier.weight(1f))

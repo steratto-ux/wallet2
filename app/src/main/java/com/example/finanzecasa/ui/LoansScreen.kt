@@ -118,7 +118,7 @@ fun LoanFormScreen(id: Long?, onClose: () -> Unit, vm: ManageViewModel = viewMod
             loaded = true
         }
     }
-    val effectiveAccountId = accountId ?: accounts.firstOrNull()?.id
+    val effectiveAccountId = accountId ?: accounts.firstOrNull { !it.hidden }?.id ?: accounts.firstOrNull()?.id
 
     ScreenScaffold(if (id == null) "Nuovo prestito" else "Modifica prestito", onBack = onClose) { inner ->
         FormColumn(inner) {

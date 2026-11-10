@@ -43,6 +43,7 @@ fun AccountFormScreen(accountId: Long?, onClose: () -> Unit, vm: ManageViewModel
     var error by remember { mutableStateOf<String?>(null) }
     var currentBalance by remember { mutableStateOf<Long?>(null) }
     var showCorrection by remember { mutableStateOf(false) }
+    var showValuation by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
 
     LaunchedEffect(accountId) {
@@ -72,11 +73,19 @@ fun AccountFormScreen(accountId: Long?, onClose: () -> Unit, vm: ManageViewModel
                 options = listOf(
                     AccountType.BANK to "Conto",
                     AccountType.CASH to "Contanti",
-                    AccountType.CREDIT_CARD to "Carta"
+                    AccountType.CREDIT_CARD to "Carta",
+                    AccountType.INVESTMENT to "Invest."
                 ),
                 selected = type,
                 onSelect = { type = it; error = null }
             )
+            if (type == AccountType.INVESTMENT) {
+                Text(
+                    "Investimento: un conto (fondi, azioni, ETF…) il cui valore aggiorni a mano quando vuoi. " +
+                        "Le variazioni di valore cambiano il patrimonio ma non contano come entrate o spese.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             MoneyInput("Valore iniziale (€)", initialText, signed = true) { initialText = it; error = null }
             Text(
                 "Il valore iniziale entra nel saldo dell'account e nel patrimonio netto. Può essere negativo.",
@@ -103,6 +112,22 @@ fun AccountFormScreen(accountId: Long?, onClose: () -> Unit, vm: ManageViewModel
                 )
             }
 
+            if (accountId != null && type == AccountType.INVESTMENT) {
+                AppCard(Modifier.fillMaxWidth()) {
+                    Text("Valore attuale", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(currentBalance?.let { formatMoney(it) } ?: "…", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        "Quando l'investimento sale o scende, scrivi il valore di oggi: l'andamento si vede nel grafico del patrimonio. " +
+                            "I versamenti si registrano come trasferimenti verso questo account.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Button(
+                        onClick = { showValuation = true },
+                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                    ) { Text("Aggiorna valore") }
+                }
+            }
             if (accountId != null) {
                 AppCard(Modifier.fillMaxWidth()) {
                     Text("Saldo attuale", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -166,6 +191,23 @@ fun AccountFormScreen(accountId: Long?, onClose: () -> Unit, vm: ManageViewModel
             }
         )
     }
+    if (showValuation && accountId != null) {
+        BalanceCorrectionDialog(
+            current = currentBalance,
+            title = "Aggiorna valore",
+            message = "Scrivi il valore di oggi. La differenza diventa un aggiornamento di valore: non è né un'entrata né una spesa.",
+            fieldLabel = "Valore attuale (€)",
+            confirmLabel = "Aggiorna",
+            onDismiss = { showValuation = false },
+            onConfirm = { target ->
+                scope.launch {
+                    vm.updateInvestmentValue(accountId, target)
+                    currentBalance = vm.currentBalanceCents(accountId)
+                    showValuation = false
+                }
+            }
+        )
+    }
     if (confirmDelete && accountId != null) {
         ConfirmDialog(
             text = "Eliminare l'account? Verranno eliminate anche le sue transazioni, i suoi abbonamenti e prestiti. " +
@@ -178,16 +220,24 @@ fun AccountFormScreen(accountId: Long?, onClose: () -> Unit, vm: ManageViewModel
 }
 
 @Composable
-private fun BalanceCorrectionDialog(current: Long?, onDismiss: () -> Unit, onConfirm: (Long) -> Unit) {
+private fun BalanceCorrectionDialog(
+    current: Long?,
+    onDismiss: () -> Unit,
+    onConfirm: (Long) -> Unit,
+    title: String = "Correggi saldo",
+    message: String = "Scrivi il saldo corretto (anche negativo). Non verrà creata nessuna transazione.",
+    fieldLabel: String = "Nuovo saldo (€)",
+    confirmLabel: String = "Correggi"
+) {
     var text by remember { mutableStateOf(current?.let { centsToInput(it) }.orEmpty()) }
     val cents = parseSignedCents(text)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Correggi saldo") },
+        title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Scrivi il saldo corretto (anche negativo). Non verrà creata nessuna transazione.")
-                MoneyInput("Nuovo saldo (€)", text, signed = true) { text = it }
+                Text(message)
+                MoneyInput(fieldLabel, text, signed = true) { text = it }
                 if (cents != null && current != null && cents != current) {
                     val diff = cents - current
                     Text(
@@ -197,7 +247,7 @@ private fun BalanceCorrectionDialog(current: Long?, onDismiss: () -> Unit, onCon
                 }
             }
         },
-        confirmButton = { TextButton(enabled = cents != null, onClick = { onConfirm(cents!!) }) { Text("Correggi") } },
+        confirmButton = { TextButton(enabled = cents != null, onClick = { onConfirm(cents!!) }) { Text(confirmLabel) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annulla") } }
     )
 }

@@ -51,13 +51,26 @@ object AlertPlanner {
             Alert("d|${d.kind}|${d.id}|${d.date.toEpochDay()}", title, text)
         }
 
+    /** Abbonamenti "da rivedere" che si rinnovano entro 3 giorni: un solo avviso per ogni rinnovo. */
+    fun reviewAlerts(dues: List<DueInput>, today: LocalDate, fmt: (Long) -> String): List<Alert> =
+        dues.filter { !it.date.isBefore(today) && !it.date.isAfter(today.plusDays(3)) }.map { d ->
+            val days = d.date.toEpochDay() - today.toEpochDay()
+            val when_ = when (days) { 0L -> "oggi"; 1L -> "domani"; else -> "tra $days giorni" }
+            val amount = d.amountCents?.let { " (${fmt(it)})" } ?: ""
+            Alert(
+                "d|rev|${d.id}|${d.date.toEpochDay()}",
+                "Lo tieni ancora?",
+                "${d.name}$amount si rinnova $when_ ed è segnato come \"da rivedere\": decidi ora se disdirlo."
+            )
+        }
+
     /** Toglie dalle chiavi già inviate quelle vecchie (mesi passati, scadenze di più di una settimana fa). */
     fun prune(keys: Set<String>, today: LocalDate): Set<String> {
         val month = YearMonth.from(today).toString()
         return keys.filter { k ->
             val parts = k.split('|')
             when (parts.firstOrNull()) {
-                "b" -> parts.getOrNull(2) == month
+                "b", "u" -> parts.getOrNull(2) == month
                 "d" -> (parts.getOrNull(3)?.toLongOrNull() ?: 0L) >= today.toEpochDay() - 7
                 else -> false
             }

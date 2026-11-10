@@ -12,6 +12,7 @@ import com.example.finanzecasa.data.TitleSuggestion
 import com.example.finanzecasa.data.TransactionEntity
 import com.example.finanzecasa.data.TxKind
 import com.example.finanzecasa.domain.Tags
+import com.example.finanzecasa.domain.insertTransferPair
 import com.example.finanzecasa.domain.toMillis
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.map
@@ -39,7 +40,8 @@ data class LoadedTransaction(
     val note: String = "",
     val tags: String = "",
     val receiptPath: String? = null,
-    val isSavings: Boolean = false
+    val isSavings: Boolean = false,
+    val isProvision: Boolean = false
 )
 
 class NewTransactionViewModel(application: Application) : AndroidViewModel(application) {
@@ -98,7 +100,8 @@ class NewTransactionViewModel(application: Application) : AndroidViewModel(appli
         note: String = "",          // ignorata nei trasferimenti (hanno la nota "Saldo trasferito A → B")
         tags: String = "",          // ignorati nei trasferimenti
         receiptPath: String? = null, // ignorata nei trasferimenti
-        isSavings: Boolean = false   // solo trasferimenti: conta come risparmio nella regola 50/30/20
+        isSavings: Boolean = false,  // solo trasferimenti: conta come risparmio nella regola 50/30/20
+        isProvision: Boolean = false // solo trasferimenti: accantona denaro per le spese irregolari
     ) {
         val cleanTags = Tags.normalize(tags)
         val millis = dateTime.toMillis()
@@ -116,23 +119,7 @@ class NewTransactionViewModel(application: Application) : AndroidViewModel(appli
                 )
             )
             TxType.TRANSFER -> app.db.withTransaction {
-                val from = dao.accountById(accountId)!!
-                val to = dao.accountById(toAccountId!!)!!
-                val group = UUID.randomUUID().toString()
-                val note = "Saldo trasferito\n${from.name} → ${to.name}"
-                val label = title.ifBlank { "Trasferimento" }
-                dao.insertTransaction(
-                    TransactionEntity(
-                        accountId = from.id, title = label, note = note, amountCents = -amountCents,
-                        dateMillis = millis, kind = TxKind.TRANSFER, transferGroupId = group, isSavings = isSavings
-                    )
-                )
-                dao.insertTransaction(
-                    TransactionEntity(
-                        accountId = to.id, title = label, note = note, amountCents = amountCents,
-                        dateMillis = millis, kind = TxKind.TRANSFER, transferGroupId = group, isSavings = isSavings
-                    )
-                )
+                insertTransferPair(dao, accountId, toAccountId!!, amountCents, title, millis, isSavings, isProvision)
             }
         }
     }
@@ -148,7 +135,7 @@ class NewTransactionViewModel(application: Application) : AndroidViewModel(appli
             val into = legs.firstOrNull { it.amountCents > 0 }
             return LoadedTransaction(
                 TxType.TRANSFER, out.title, abs(out.amountCents), out.accountId, into?.accountId, null, dt,
-                isSavings = out.isSavings
+                isSavings = out.isSavings, isProvision = out.isProvision
             )
         }
         return LoadedTransaction(
@@ -175,11 +162,11 @@ class NewTransactionViewModel(application: Application) : AndroidViewModel(appli
     suspend fun update(
         id: Long, type: TxType, title: String, amountCents: Long,
         accountId: Long, toAccountId: Long?, categoryId: Long?, dateTime: LocalDateTime, note: String = "",
-        tags: String = "", receiptPath: String? = null, isSavings: Boolean = false
+        tags: String = "", receiptPath: String? = null, isSavings: Boolean = false, isProvision: Boolean = false
     ) {
         val oldReceipt = app.db.withTransaction {
             val old = deleteRows(id)
-            save(type, title, amountCents, accountId, toAccountId, categoryId, dateTime, note, tags, receiptPath, isSavings)
+            save(type, title, amountCents, accountId, toAccountId, categoryId, dateTime, note, tags, receiptPath, isSavings, isProvision)
             old
         }
         // La vecchia foto va tolta solo se non è più usata (sostituita, rimossa o tipo cambiato in trasferimento)

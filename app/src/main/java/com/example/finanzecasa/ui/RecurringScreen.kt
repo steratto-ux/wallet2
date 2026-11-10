@@ -38,6 +38,13 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import kotlin.math.abs
 
+/** Importo mensile equivalente di una ricorrente (le settimanali valgono 52/12 al mese, le annuali 1/12). */
+private fun monthlyEquivalent(r: RecurringEntity): Long = when (r.cadence) {
+    Cadence.WEEKLY -> r.amountCents * 52 / 12
+    Cadence.MONTHLY -> r.amountCents
+    Cadence.YEARLY -> r.amountCents / 12
+}
+
 private fun cadenceName(c: Cadence) = when (c) {
     Cadence.WEEKLY -> "Settimanale"
     Cadence.MONTHLY -> "Mensile"
@@ -67,7 +74,8 @@ fun RecurringScreen(onBack: () -> Unit, onOpenForm: (Long?) -> Unit, vm: ManageV
         ) {
             item {
                 Text(
-                    "Entrate e uscite che si ripetono: alla scadenza l'app crea da sola la transazione. " +
+                    "Entrate, uscite e trasferimenti che si ripetono: alla scadenza l'app crea da sola la transazione. " +
+                        "Con un trasferimento ricorrente puoi mettere da parte il risparmio o l'accantonamento in automatico. " +
                         "Puoi cambiare l'importo quando vuoi: vale dalle prossime scadenze.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -75,13 +83,18 @@ fun RecurringScreen(onBack: () -> Unit, onOpenForm: (Long?) -> Unit, vm: ManageV
             }
             if (list.isEmpty()) item { Text("Nessuna transazione ricorrente. Tocca + per aggiungerne una.") }
             items(list, key = { it.id }) { r ->
-                val income = r.amountCents > 0
+                val isTransfer = r.toAccountId != null
+                val income = r.amountCents > 0 && !isTransfer
+                val flagLabel = when (r.transferFlag) { 1 -> " · Risparmio"; 2 -> " · Accantonamento"; else -> "" }
+                val where = if (isTransfer) {
+                    "${accountNames[r.accountId] ?: "?"} → ${accountNames[r.toAccountId] ?: "?"}$flagLabel"
+                } else accountNames[r.accountId] ?: "?"
                 AppCard(Modifier.fillMaxWidth(), onClick = { onOpenForm(r.id) }) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(r.title + if (r.active) "" else " (in pausa)", style = MaterialTheme.typography.titleMedium)
                             Text(
-                                "${cadenceName(r.cadence)} · prossima ${formatDate(LocalDate.ofEpochDay(r.nextDueEpochDay))} · ${accountNames[r.accountId] ?: "?"}",
+                                "${cadenceName(r.cadence)} · prossima ${formatDate(LocalDate.ofEpochDay(r.nextDueEpochDay))} · $where",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -89,7 +102,11 @@ fun RecurringScreen(onBack: () -> Unit, onOpenForm: (Long?) -> Unit, vm: ManageV
                         Text(
                             (if (income) "+" else "") + formatMoney(r.amountCents),
                             style = MaterialTheme.typography.titleMedium,
-                            color = if (income) MaterialTheme.colorScheme.income else MaterialTheme.colorScheme.error
+                            color = when {
+                                isTransfer -> MaterialTheme.colorScheme.onSurface
+                                income -> MaterialTheme.colorScheme.income
+                                else -> MaterialTheme.colorScheme.error
+                            }
                         )
                     }
                     if (r.active) {
@@ -121,7 +138,8 @@ fun RecurringScreen(onBack: () -> Unit, onOpenForm: (Long?) -> Unit, vm: ManageV
 
 @Composable
 fun RecurringFormScreen(id: Long?, onClose: () -> Unit, vm: ManageViewModel = viewModel()) {
-    val accounts by vm.accounts.collectAsState()
+    val allAccounts by vm.accounts.collectAsState()
+    val allRecurring by vm.recurring.collectAsState()
     val categories by vm.categories.collectAsState()
     val scope = rememberCoroutineScope()
 
@@ -129,6 +147,9 @@ fun RecurringFormScreen(id: Long?, onClose: () -> Unit, vm: ManageViewModel = vi
     var title by rememberSaveable { mutableStateOf("") }
     var amountText by rememberSaveable { mutableStateOf("") }
     var income by rememberSaveable { mutableStateOf(false) }
+    var isTransfer by rememberSaveable { mutableStateOf(false) }
+    var toAccountId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var transferFlag by rememberSaveable { mutableStateOf(0) } // 0 = nessuno, 1 = risparmio, 2 = accantonamento
     var cadence by rememberSaveable { mutableStateOf(Cadence.MONTHLY) }
     var dueDate by rememberSaveable { mutableStateOf(LocalDate.now()) }
     var accountId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -144,7 +165,10 @@ fun RecurringFormScreen(id: Long?, onClose: () -> Unit, vm: ManageViewModel = vi
             vm.recurringById(id)?.let { r ->
                 title = r.title
                 amountText = centsToInput(abs(r.amountCents))
-                income = r.amountCents > 0
+                income = r.amountCents > 0 && r.toAccountId == null
+                isTransfer = r.toAccountId != null
+                toAccountId = r.toAccountId
+                transferFlag = r.transferFlag
                 cadence = r.cadence
                 dueDate = LocalDate.ofEpochDay(r.nextDueEpochDay)
                 accountId = r.accountId
@@ -154,13 +178,18 @@ fun RecurringFormScreen(id: Long?, onClose: () -> Unit, vm: ManageViewModel = vi
             loaded = true
         }
     }
+    // Gli account nascosti non si possono scegliere (tranne quelli già usati da questa ricorrente)
+    val accounts = selectableAccounts(allAccounts, accountId, toAccountId)
     val effectiveAccountId = accountId?.takeIf { a -> accounts.any { it.id == a } } ?: accounts.firstOrNull()?.id
+    val effectiveToId = toAccountId?.takeIf { t -> t != effectiveAccountId && accounts.any { it.id == t } }
+        ?: accounts.firstOrNull { it.id != effectiveAccountId }?.id
 
     ScreenScaffold(if (id == null) "Nuova ricorrente" else "Modifica ricorrente", onBack = onClose) { inner ->
         FormColumn(inner) {
             SegmentedChoice(
-                options = listOf(false to "Uscita", true to "Entrata"),
-                selected = income, onSelect = { income = it }
+                options = listOf(0 to "Uscita", 1 to "Entrata", 2 to "Trasferimento"),
+                selected = if (isTransfer) 2 else if (income) 1 else 0,
+                onSelect = { isTransfer = it == 2; income = it == 1; error = null }
             )
             TextInput("Titolo (es. Stipendio, Affitto)", title) { title = it; error = null }
             MoneyInput("Importo (€)", amountText) { amountText = it; error = null }
@@ -177,8 +206,30 @@ fun RecurringFormScreen(id: Long?, onClose: () -> Unit, vm: ManageViewModel = vi
                     style = MaterialTheme.typography.bodySmall
                 )
             }
-            AccountField("Account", accounts, effectiveAccountId) { accountId = it; error = null }
-            CategoryField(categories, categoryId, onSelect = { categoryId = it }, onNew = { showNewCategory = true })
+            AccountField(if (isTransfer) "Da account" else "Account", accounts, effectiveAccountId) { accountId = it; error = null }
+            if (isTransfer) {
+                AccountField("A account", accounts.filter { it.id != effectiveAccountId }, effectiveToId) { toAccountId = it; error = null }
+                Text("Tipo di trasferimento", style = MaterialTheme.typography.labelLarge)
+                SegmentedChoice(
+                    options = listOf(0 to "Normale", 1 to "Risparmio", 2 to "Accantonamento"),
+                    selected = transferFlag, onSelect = { transferFlag = it }
+                )
+                val monthlyIncome = allRecurring
+                    .filter { it.active && it.toAccountId == null && it.amountCents > 0 && it.id != id }
+                    .sumOf { monthlyEquivalent(it) }
+                Text(
+                    when {
+                        transferFlag == 1 && monthlyIncome > 0 ->
+                            "Conta nel 20% della regola 50/30/20. Il 20% delle tue entrate ricorrenti è circa ${formatMoney(monthlyIncome / 5)} al mese."
+                        transferFlag == 1 -> "Conta nel 20% della regola 50/30/20 (Analisi)."
+                        transferFlag == 2 -> "Mette da parte denaro per le spese irregolari: lo ritrovi in Spese irregolari."
+                        else -> "Sposta denaro tra due tuoi account, senza cambiare il patrimonio."
+                    },
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                CategoryField(categories, categoryId, onSelect = { categoryId = it }, onNew = { showNewCategory = true })
+            }
             if (id != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Attiva", Modifier.weight(1f))
@@ -195,14 +246,19 @@ fun RecurringFormScreen(id: Long?, onClose: () -> Unit, vm: ManageViewModel = vi
                         title.isBlank() -> error = "Inserisci un titolo."
                         cents == null -> error = "Inserisci un importo maggiore di zero."
                         effectiveAccountId == null -> error = "Non ci sono account: creane uno dalla schermata principale."
+                        isTransfer && (effectiveToId == null || effectiveToId == effectiveAccountId) ->
+                            error = "Scegli due account diversi."
                         else -> scope.launch {
                             vm.saveRecurring(
                                 RecurringEntity(
                                     id = id ?: 0, title = title.trim(),
-                                    amountCents = if (income) cents else -cents,
+                                    amountCents = if (isTransfer || income) cents else -cents,
                                     cadence = cadence, anchorDay = dueDate.dayOfMonth,
                                     nextDueEpochDay = dueDate.toEpochDay(),
-                                    accountId = effectiveAccountId, categoryId = categoryId, active = active
+                                    accountId = effectiveAccountId,
+                                    categoryId = if (isTransfer) null else categoryId, active = active,
+                                    toAccountId = if (isTransfer) effectiveToId else null,
+                                    transferFlag = if (isTransfer) transferFlag else 0
                                 )
                             )
                             onClose()

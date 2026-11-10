@@ -145,7 +145,7 @@ object ForecastMath {
             .map { Upcoming(it.name, LocalDate.ofEpochDay(it.nextDueEpochDay), -it.amountCents) } +
             loans.filter { it.remainingInstallments > 0 && inRange(it.nextDueEpochDay) }
                 .map { Upcoming(it.name, LocalDate.ofEpochDay(it.nextDueEpochDay), -it.installmentCents) } +
-            recurring.filter { it.active }.flatMap { r ->
+            recurring.filter { it.active && it.toAccountId == null }.flatMap { r ->
                 // Le settimanali possono cadere più volte nel mese: si contano tutte quelle che restano
                 val dates = generateSequence(LocalDate.ofEpochDay(r.nextDueEpochDay)) {
                     if (r.cadence == Cadence.WEEKLY) it.plusWeeks(1) else null

@@ -15,7 +15,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -41,6 +46,8 @@ import com.example.finanzecasa.FinanceApp
 import com.example.finanzecasa.data.AccountEntity
 import com.example.finanzecasa.data.CategoryEntity
 import com.example.finanzecasa.data.GoalEntity
+import com.example.finanzecasa.data.AccountType
+import com.example.finanzecasa.domain.EmergencyFund
 import com.example.finanzecasa.domain.GoalMath
 import com.example.finanzecasa.domain.toMillis
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -52,6 +59,15 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.YearMonth
+
+/** Stato del fondo di emergenza: spesa media mensile (null se non ci sono mesi chiusi con spese) e quanto c'è da parte. */
+data class EmergencyState(
+    val averageMonthlyCents: Long?,
+    val months: Int,
+    val accountIds: Set<Long>,
+    val savedCents: Long
+)
 
 /** Un obiettivo con quanto è stato messo da parte finora. */
 data class GoalItem(val goal: GoalEntity, val savedCents: Long)
@@ -94,6 +110,28 @@ class GoalsViewModel(application: Application) : AndroidViewModel(application) {
             }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    // --- Fondo di emergenza: mesi di spese da coprire e account dove si tiene
+    private val settings = AppSettings(application)
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val emergency: StateFlow<EmergencyState?> = minuteClock().flatMapLatest { now ->
+        val upTo = now.plusMinutes(1).toMillis()
+        val current = YearMonth.from(now)
+        val from = current.minusMonths(6).atDay(1).atStartOfDay().toMillis()
+        combine(dao.observeBalances(upTo), dao.observeExpenseByMonth(from, upTo), settings.emergencyFlow()) { balances, months, cfg ->
+            val (monthsTarget, ids) = cfg
+            EmergencyState(
+                averageMonthlyCents = EmergencyFund.averageMonthly(months, current),
+                months = monthsTarget,
+                accountIds = ids,
+                savedCents = balances.filter { it.id in ids }.sumOf { it.balanceCents }
+            )
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    fun setEmergencyMonths(months: Int) = settings.setEmergencyMonths(months)
+    fun setEmergencyAccounts(ids: Set<Long>) = settings.setEmergencyAccountIds(ids)
+
     suspend fun goalById(id: Long) = dao.goalById(id)
 
     suspend fun save(g: GoalEntity) {
@@ -110,6 +148,9 @@ class GoalsViewModel(application: Application) : AndroidViewModel(application) {
 @Composable
 fun GoalsScreen(onBack: () -> Unit, onOpenForm: (Long?) -> Unit, vm: GoalsViewModel = viewModel()) {
     val list by vm.goals.collectAsState()
+    val emergency by vm.emergency.collectAsState()
+    val accounts by vm.accounts.collectAsState()
+    var pickingAccounts by remember { mutableStateOf(false) }
     val today = LocalDate.now()
 
     ScreenScaffold(
@@ -123,7 +164,14 @@ fun GoalsScreen(onBack: () -> Unit, onOpenForm: (Long?) -> Unit, vm: GoalsViewMo
             contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = 88.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            if (list.isEmpty()) item { Text("Nessun obiettivo. Tocca + per crearne uno (una vacanza, un'auto, un fondo emergenze…).") }
+            item {
+                EmergencyCard(
+                    state = emergency,
+                    onMonths = { vm.setEmergencyMonths(it) },
+                    onPickAccounts = { pickingAccounts = true }
+                )
+            }
+            if (list.isEmpty()) item { Text("Nessun obiettivo. Tocca + per crearne uno (una vacanza, un'auto…).") }
             items(list, key = { it.goal.id }) { item ->
                 val g = item.goal
                 val done = item.savedCents >= g.targetCents
@@ -154,6 +202,89 @@ fun GoalsScreen(onBack: () -> Unit, onOpenForm: (Long?) -> Unit, vm: GoalsViewMo
             }
         }
     }
+    if (pickingAccounts) {
+        EmergencyAccountsDialog(
+            accounts = accounts, selected = emergency?.accountIds ?: emptySet(),
+            onDismiss = { pickingAccounts = false },
+            onConfirm = { vm.setEmergencyAccounts(it); pickingAccounts = false }
+        )
+    }
+}
+
+@Composable
+private fun EmergencyCard(state: EmergencyState?, onMonths: (Int) -> Unit, onPickAccounts: () -> Unit) {
+    AppCard(Modifier.fillMaxWidth()) {
+        Text("Fondo di emergenza", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Una riserva per gli imprevisti: di solito 3 o 6 mesi di spese. Scegli in quali account la tieni e vedi a che punto sei.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+        )
+        val average = state?.averageMonthlyCents
+        if (state == null) return@AppCard
+        SegmentedChoice(
+            options = listOf(3 to "3 mesi", 6 to "6 mesi"),
+            selected = state.months, onSelect = onMonths
+        )
+        if (average == null) {
+            Text(
+                "Per calcolarlo serve almeno un mese chiuso con delle spese registrate.",
+                style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp)
+            )
+        } else {
+            val target = EmergencyFund.target(average, state.months)
+            val covered = EmergencyFund.monthsCovered(state.savedCents, average)
+            Text(
+                "Spese medie: ${formatMoney(average)} al mese", style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+            Text("Obiettivo: ${formatMoney(target)}", style = MaterialTheme.typography.bodyMedium)
+            ProgressBar(
+                EmergencyFund.percent(state.savedCents, target) / 100f,
+                Modifier.padding(top = 8.dp, bottom = 8.dp)
+            )
+            Text(
+                if (state.accountIds.isEmpty()) "Scegli gli account dove tieni il fondo per vedere a che punto sei."
+                else "Messi da parte: ${formatMoney(state.savedCents)} · coprono " +
+                    "${String.format(java.util.Locale.ITALIAN, "%.1f", covered)} mesi di spese (${EmergencyFund.percent(state.savedCents, target)}%)",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+        TextButton(onClick = onPickAccounts) {
+            Text(if (state.accountIds.isEmpty()) "Scegli gli account" else "Cambia gli account")
+        }
+    }
+}
+
+@Composable
+private fun EmergencyAccountsDialog(
+    accounts: List<AccountEntity>, selected: Set<Long>, onDismiss: () -> Unit, onConfirm: (Set<Long>) -> Unit
+) {
+    var chosen by remember { mutableStateOf(selected) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Dove tieni il fondo?") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                accounts.filter { it.type != AccountType.CREDIT_CARD }.forEach { a ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable {
+                            chosen = if (a.id in chosen) chosen - a.id else chosen + a.id
+                        },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = a.id in chosen,
+                            onCheckedChange = { on -> chosen = if (on) chosen + a.id else chosen - a.id }
+                        )
+                        Text(a.name)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(chosen) }) { Text("Salva") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Annulla") } }
+    )
 }
 
 @Composable

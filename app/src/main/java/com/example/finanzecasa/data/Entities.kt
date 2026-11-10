@@ -6,8 +6,9 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
-enum class AccountType { BANK, CASH, CREDIT_CARD }
-enum class TxKind { NORMAL, TRANSFER }
+enum class AccountType { BANK, CASH, CREDIT_CARD, INVESTMENT }
+/** VALUATION = aggiornamento a mano del valore di un conto di investimento: cambia il saldo ma non è né entrata né spesa. */
+enum class TxKind { NORMAL, TRANSFER, VALUATION }
 enum class Cadence { MONTHLY, YEARLY, WEEKLY }
 
 /** Importi sempre in centesimi (Long): niente errori di virgola mobile. */
@@ -65,7 +66,9 @@ data class TransactionEntity(
     val tags: String = "",                   // etichette separate da virgola (es. "vacanza,regalo")
     val receiptPath: String? = null,         // nome del file della foto dello scontrino (cartella receipts/)
     // Aggiunto nella v5:
-    val isSavings: Boolean = false           // trasferimento che conta come risparmio (regola 50/30/20)
+    val isSavings: Boolean = false,          // trasferimento che conta come risparmio (regola 50/30/20)
+    // Aggiunto nella v6:
+    val isProvision: Boolean = false         // trasferimento che accantona denaro per le spese irregolari
 )
 
 @Entity(tableName = "subscriptions")
@@ -78,7 +81,9 @@ data class SubscriptionEntity(
     val nextDueEpochDay: Long,
     val accountId: Long,
     val categoryId: Long? = null,
-    val active: Boolean = true
+    val active: Boolean = true,
+    // Aggiunto nella v6:
+    val toReview: Boolean = false            // da rivedere: l'utente deve decidere se tenerlo
 )
 
 @Entity(tableName = "loans")
@@ -139,7 +144,31 @@ data class RecurringEntity(
     val nextDueEpochDay: Long,
     val accountId: Long,
     val categoryId: Long? = null,
-    val active: Boolean = true
+    val active: Boolean = true,
+    // Aggiunti nella v6: se toAccountId è valorizzato la ricorrente è un trasferimento (importo positivo)
+    val toAccountId: Long? = null,
+    val transferFlag: Int = 0                // 0 = nessuno, 1 = risparmio, 2 = accantonamento
+)
+
+/** Spesa irregolare prevista (assicurazione, bollo, vacanza...): serve a calcolare quanto mettere da parte ogni mese. */
+@Entity(tableName = "irregular_expenses")
+data class IrregularExpenseEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val name: String,
+    val estimatedCents: Long,                // importo previsto, positivo
+    val dueEpochDay: Long,                   // data prevista
+    val categoryId: Long? = null,
+    val repeatYearly: Boolean = false,       // dopo il pagamento si ripresenta l'anno dopo
+    val done: Boolean = false                // pagata e non ricorrente
+)
+
+/** Quanto dell'accantonamento è stato usato per pagare una spesa irregolare. */
+@Entity(tableName = "provision_uses")
+data class ProvisionUseEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val irregularId: Long,
+    val amountCents: Long,
+    val dateEpochDay: Long
 )
 
 /**

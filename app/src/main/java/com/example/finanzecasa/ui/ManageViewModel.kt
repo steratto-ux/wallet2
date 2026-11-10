@@ -15,7 +15,9 @@ import com.example.finanzecasa.data.RecurringEntity
 import com.example.finanzecasa.domain.AccountOrder
 import com.example.finanzecasa.data.SubscriptionEntity
 import com.example.finanzecasa.data.TransactionEntity
+import com.example.finanzecasa.data.TxKind
 import com.example.finanzecasa.domain.RecurringSchedule
+import com.example.finanzecasa.domain.insertRecurringOccurrence
 import com.example.finanzecasa.domain.TitleKey
 import com.example.finanzecasa.domain.BudgetHistory
 import com.example.finanzecasa.domain.DueItemsProcessor
@@ -82,12 +84,7 @@ class ManageViewModel(application: Application) : AndroidViewModel(application) 
     suspend fun registerRecurringNow(id: Long): Boolean {
         val done = app.db.withTransaction {
             val r = dao.recurringById(id) ?: return@withTransaction false
-            dao.insertTransaction(
-                TransactionEntity(
-                    accountId = r.accountId, categoryId = r.categoryId, title = r.title,
-                    amountCents = r.amountCents, dateMillis = LocalDate.now().atStartOfDay().toMillis()
-                )
-            )
+            insertRecurringOccurrence(dao, r, LocalDate.now().atStartOfDay().toMillis())
             val next = RecurringSchedule.following(LocalDate.ofEpochDay(r.nextDueEpochDay), r.cadence, r.anchorDay)
             dao.updateRecurring(r.copy(nextDueEpochDay = next.toEpochDay()))
             true
@@ -154,6 +151,26 @@ class ManageViewModel(application: Application) : AndroidViewModel(application) 
         val newInitial = a.initialBalanceCents + (targetCents - current)
         dao.updateAccount(a.copy(initialBalanceCents = newInitial))
         newInitial
+    }
+
+    /**
+     * Aggiorna a mano il valore di un conto di investimento: registra la differenza come "aggiornamento di valore",
+     * che cambia il saldo (e il patrimonio) ma non conta né come entrata né come spesa.
+     */
+    suspend fun updateInvestmentValue(id: Long, targetCents: Long): Boolean = app.db.withTransaction {
+        val a = dao.accountById(id) ?: return@withTransaction false
+        val now = System.currentTimeMillis()
+        val current = a.initialBalanceCents + dao.sumForAccount(id, now + 60_000)
+        val diff = targetCents - current
+        if (diff != 0L) {
+            dao.insertTransaction(
+                TransactionEntity(
+                    accountId = id, title = "Aggiornamento valore", amountCents = diff,
+                    dateMillis = now, kind = TxKind.VALUATION
+                )
+            )
+        }
+        true
     }
 
     /**
@@ -248,6 +265,11 @@ class ManageViewModel(application: Application) : AndroidViewModel(application) 
     suspend fun saveSubscription(s: SubscriptionEntity) {
         if (s.id == 0L) dao.insertSubscription(s) else dao.updateSubscription(s)
         DueItemsProcessor(app.db).run(LocalDate.now()) // registra subito le scadenze già arrivate
+    }
+
+    /** Segna (o toglie) un abbonamento come "da rivedere": deciderà l'utente se tenerlo. */
+    suspend fun setSubscriptionReview(id: Long, toReview: Boolean) {
+        dao.subscriptionById(id)?.let { dao.updateSubscription(it.copy(toReview = toReview)) }
     }
 
     suspend fun deleteSubscription(id: Long) {

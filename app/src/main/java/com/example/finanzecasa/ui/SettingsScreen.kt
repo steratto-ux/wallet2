@@ -34,6 +34,7 @@ import com.example.finanzecasa.FinanceApp
 import com.example.finanzecasa.alerts.AlertsChecker
 import com.example.finanzecasa.backup.AutoBackup
 import com.example.finanzecasa.backup.BackupRepository
+import com.example.finanzecasa.alerts.ReminderScheduler
 import com.example.finanzecasa.widget.WalletWidgetProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -149,6 +150,9 @@ fun SettingsScreen(
     var includeLoans by remember { mutableStateOf(settings.includeLoans()) }
     var notifications by remember { mutableStateOf(settings.notificationsEnabled()) }
     var lock by remember { mutableStateOf(settings.lockEnabled()) }
+    var unusual by remember { mutableStateOf(settings.unusualAlertsEnabled()) }
+    var reminder by remember { mutableStateOf(settings.reminderEnabled()) }
+    var reminderHour by remember { mutableStateOf(settings.reminderHour()) }
     var autoBackup by remember { mutableStateOf(settings.autoBackupEnabled()) }
     var folder by remember { mutableStateOf(settings.backupFolder()) }
     var message by remember { mutableStateOf<String?>(null) }
@@ -258,6 +262,39 @@ fun SettingsScreen(
                         notifications = true
                         settings.setNotificationsEnabled(true)
                         vm.checkAlertsNow()
+                    }
+                }
+            }
+            AppCard(Modifier.fillMaxWidth()) {
+                SwitchRow(
+                    "Spese sopra la media",
+                    "Avviso quando in una categoria hai già speso molto più della tua media mensile. Richiede le notifiche attive.",
+                    unusual
+                ) { unusual = it; settings.setUnusualAlertsEnabled(it) }
+            }
+            AppCard(Modifier.fillMaxWidth()) {
+                SwitchRow(
+                    "Promemoria serale",
+                    "Una notifica all'ora scelta, solo se oggi non hai inserito nessuna transazione. Richiede le notifiche attive.",
+                    reminder
+                ) { on ->
+                    reminder = on
+                    settings.setReminderEnabled(on)
+                    ReminderScheduler.schedule(context)
+                }
+                if (reminder) {
+                    androidx.compose.foundation.layout.Box(Modifier.padding(top = 8.dp)) {
+                        DropdownField(
+                            label = "Ora del promemoria",
+                            value = "%02d:00".format(reminderHour),
+                            entries = (17..23).map { h ->
+                                "%02d:00".format(h) to {
+                                    reminderHour = h
+                                    settings.setReminderHour(h)
+                                    ReminderScheduler.schedule(context)
+                                }
+                            }
+                        )
                     }
                 }
             }

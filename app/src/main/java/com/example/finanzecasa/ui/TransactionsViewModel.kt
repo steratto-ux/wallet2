@@ -128,7 +128,7 @@ class TransactionsViewModel(application: Application) : AndroidViewModel(applica
             make("Abbonamento", "subscriptionForm", it.id, it.name, -it.amountCents, it.nextDueEpochDay, it.accountId, it.categoryId)
         } + src.loans.filter { it.remainingInstallments > 0 }.map {
             make("Rata", "loanForm", it.id, it.name, -it.installmentCents, it.nextDueEpochDay, it.accountId, it.categoryId)
-        } + src.recurring.filter { it.active }.map {
+        } + src.recurring.filter { it.active && it.toAccountId == null }.map {
             make("Ricorrente", "recurringForm", it.id, it.title, it.amountCents, it.nextDueEpochDay, it.accountId, it.categoryId)
         }
 

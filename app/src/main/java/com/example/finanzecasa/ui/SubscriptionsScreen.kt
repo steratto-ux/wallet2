@@ -16,6 +16,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,6 +42,13 @@ private fun cadenceLabel(c: Cadence) = when (c) {
     Cadence.YEARLY -> "Annuale"
 }
 
+/** Costo annuo di un abbonamento. */
+private fun annualCents(s: SubscriptionEntity): Long = when (s.cadence) {
+    Cadence.WEEKLY -> s.amountCents * 52
+    Cadence.MONTHLY -> s.amountCents * 12
+    Cadence.YEARLY -> s.amountCents
+}
+
 @Composable
 fun SubscriptionsScreen(onBack: () -> Unit, onOpenForm: (Long?) -> Unit, vm: ManageViewModel = viewModel()) {
     val subs by vm.subscriptions.collectAsState()
@@ -48,7 +56,9 @@ fun SubscriptionsScreen(onBack: () -> Unit, onOpenForm: (Long?) -> Unit, vm: Man
     val accountNames = accounts.associate { it.id to it.name }
 
     val active = subs.filter { it.active }
-    val yearlyCents = active.sumOf { when (it.cadence) { Cadence.WEEKLY -> it.amountCents * 52; Cadence.MONTHLY -> it.amountCents * 12; Cadence.YEARLY -> it.amountCents } }
+    val yearlyCents = active.sumOf { annualCents(it) }
+    val toReview = active.filter { it.toReview }
+    val scope = rememberCoroutineScope()
 
     ScreenScaffold(
         title = "Abbonamenti", onBack = onBack,
@@ -66,6 +76,15 @@ fun SubscriptionsScreen(onBack: () -> Unit, onOpenForm: (Long?) -> Unit, vm: Man
                     Text("Costo degli abbonamenti attivi", style = MaterialTheme.typography.labelLarge)
                     Text("${formatMoney(yearlyCents / 12)} al mese", style = MaterialTheme.typography.titleLarge)
                     Text("${formatMoney(yearlyCents)} all'anno", style = MaterialTheme.typography.bodyMedium)
+                    if (toReview.isNotEmpty()) {
+                        Text(
+                            "Da rivedere: ${toReview.size} (${formatMoney(toReview.sumOf { annualCents(it) })} all'anno). " +
+                                "Se li disdici, è quello che risparmi in un anno.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 6.dp)
+                        )
+                    }
                 }
             }
             if (subs.isEmpty()) item { Text("Nessun abbonamento. Tocca + per aggiungerne uno.") }
@@ -73,13 +92,27 @@ fun SubscriptionsScreen(onBack: () -> Unit, onOpenForm: (Long?) -> Unit, vm: Man
                 AppCard(Modifier.fillMaxWidth(), onClick = { onOpenForm(s.id) }) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text(s.name + if (s.active) "" else " (in pausa)", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                s.name + (if (s.active) "" else " (in pausa)") + (if (s.toReview) " · da rivedere" else ""),
+                                style = MaterialTheme.typography.titleMedium
+                            )
                             Text(
                                 "${cadenceLabel(s.cadence)} · prossima ${formatDate(LocalDate.ofEpochDay(s.nextDueEpochDay))} · ${accountNames[s.accountId] ?: "?"}",
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
                         Text(formatMoney(s.amountCents), style = MaterialTheme.typography.titleMedium)
+                    }
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "${formatMoney(annualCents(s))} all'anno",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = { scope.launch { vm.setSubscriptionReview(s.id, !s.toReview) } }) {
+                            Text(if (s.toReview) "Togli da rivedere" else "Da rivedere")
+                        }
                     }
                 }
             }
@@ -89,11 +122,12 @@ fun SubscriptionsScreen(onBack: () -> Unit, onOpenForm: (Long?) -> Unit, vm: Man
 
 @Composable
 fun SubscriptionFormScreen(id: Long?, onClose: () -> Unit, vm: ManageViewModel = viewModel()) {
-    val accounts by vm.accounts.collectAsState()
+    val allAccounts by vm.accounts.collectAsState()
     val categories by vm.categories.collectAsState()
     val scope = rememberCoroutineScope()
 
     var loaded by rememberSaveable { mutableStateOf(id == null) }
+    var toReview by rememberSaveable { mutableStateOf(false) }
     var name by rememberSaveable { mutableStateOf("") }
     var amountText by rememberSaveable { mutableStateOf("") }
     var cadence by rememberSaveable { mutableStateOf(Cadence.MONTHLY) }
@@ -116,10 +150,12 @@ fun SubscriptionFormScreen(id: Long?, onClose: () -> Unit, vm: ManageViewModel =
                 accountId = s.accountId
                 categoryId = s.categoryId
                 active = s.active
+                toReview = s.toReview
             }
             loaded = true
         }
     }
+    val accounts = selectableAccounts(allAccounts, accountId)
     val effectiveAccountId = accountId ?: accounts.firstOrNull()?.id
 
     ScreenScaffold(if (id == null) "Nuovo abbonamento" else "Modifica abbonamento", onBack = onClose) { inner ->
@@ -141,6 +177,16 @@ fun SubscriptionFormScreen(id: Long?, onClose: () -> Unit, vm: ManageViewModel =
             }
             AccountField("Account", accounts, effectiveAccountId) { accountId = it; error = null }
             CategoryField(categories, categoryId, onSelect = { categoryId = it }, onNew = { showNewCategory = true })
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text("Da rivedere")
+                    Text(
+                        "Ti ricordo di decidere se tenerlo, con un avviso nei giorni prima del rinnovo.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = toReview, onCheckedChange = { toReview = it })
+            }
             if (id != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Attivo", Modifier.weight(1f))
@@ -162,7 +208,8 @@ fun SubscriptionFormScreen(id: Long?, onClose: () -> Unit, vm: ManageViewModel =
                                 SubscriptionEntity(
                                     id = id ?: 0, name = name.trim(), amountCents = cents, cadence = cadence,
                                     anchorDay = dueDate.dayOfMonth, nextDueEpochDay = dueDate.toEpochDay(),
-                                    accountId = effectiveAccountId, categoryId = categoryId, active = active
+                                    accountId = effectiveAccountId, categoryId = categoryId, active = active,
+                                    toReview = toReview
                                 )
                             )
                             onClose()

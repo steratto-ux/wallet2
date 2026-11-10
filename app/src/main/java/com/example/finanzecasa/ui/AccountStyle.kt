@@ -18,6 +18,7 @@ import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CreditCard
+import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -58,6 +59,7 @@ fun accountIcon(iconKey: String?, type: AccountType): ImageVector {
         AccountType.BANK -> Icons.Outlined.AccountBalance
         AccountType.CASH -> Icons.Outlined.AccountBalanceWallet
         AccountType.CREDIT_CARD -> Icons.Outlined.CreditCard
+        AccountType.INVESTMENT -> Icons.Outlined.TrendingUp
     }
 }
 

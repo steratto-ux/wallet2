@@ -109,12 +109,7 @@ class DueItemsProcessor(private val db: AppDatabase) {
         for (r in dao.dueRecurring(today.toEpochDay())) {
             var next = LocalDate.ofEpochDay(r.nextDueEpochDay)
             while (!next.isAfter(today)) {
-                dao.insertTransaction(
-                    TransactionEntity(
-                        accountId = r.accountId, categoryId = r.categoryId, title = r.title,
-                        amountCents = r.amountCents, dateMillis = next.atStartOfDay().toMillis()
-                    )
-                )
+                insertRecurringOccurrence(dao, r, next.atStartOfDay().toMillis())
                 next = RecurringSchedule.following(next, r.cadence, r.anchorDay)
             }
             dao.updateRecurring(r.copy(nextDueEpochDay = next.toEpochDay()))

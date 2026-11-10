@@ -41,7 +41,7 @@ val guideSections: List<GuideSection> = listOf(
             par("Dall'alto verso il basso la schermata principale contiene:"),
             bullets(
                 "Saluto: cambia con l'ora del giorno (Buongiorno, Buon pomeriggio, Buonasera) e usa il nome che scrivi in Configurazione. A destra c'è l'ingranaggio della Configurazione.",
-                "Pulsanti rapidi: due righe di icone che aprono Categorie, Budget, Abbonamenti, Prestiti, Ricorrenti, Obiettivi, Report e Transazioni.",
+                "Pulsanti rapidi: tre righe di icone che aprono Categorie, Budget, Abbonamenti, Prestiti, Ricorrenti, Spese irregolari, Obiettivi, Report e Transazioni.",
                 "ANALISI ECONOMICA: il pulsante con il bordo dorato apre le analisi (previsione, regola 50/30/20, spese fisse e variabili, simulatore, piccole spese).",
                 "Account: i riquadri che scorrono in orizzontale. Ognuno ha colore e icona scelti da te, il nome e il saldo (in rosso se è negativo). Toccandolo lo modifichi; l'ultimo riquadro, Nuovo account, ne crea uno.",
                 "Entrate del mese (a sinistra) e Spese del mese (a destra): il totale dal giorno 1 a oggi. I trasferimenti tra i tuoi account non contano, perché i soldi non escono dal tuo patrimonio.",
@@ -74,11 +74,16 @@ val guideSections: List<GuideSection> = listOf(
                 "Data e ora: di default adesso. Una data nel futuro crea una transazione programmata, che entra nel saldo solo quando arriva il giorno.",
                 "Note, tag e foto dello scontrino: facoltativi. I tag (ad esempio #vacanza2026) servono per cercare spese di tipo diverso dalle categorie."
             ),
-            par("Il Trasferimento sposta soldi da un account a un altro (ad esempio dal conto al libretto di risparmio). Non è una spesa e non modifica il patrimonio netto."),
+            par("Il Trasferimento sposta soldi da un account a un altro (ad esempio dal conto al libretto di risparmio). Non è una spesa e non modifica il patrimonio netto. Ha tre tipi: Normale, Risparmio e Accantonamento."),
             example(
-                "Per segnare i soldi messi da parte, fai un Trasferimento dal conto corrente al conto Risparmi e spunta la casella Risparmio. " +
-                    "Solo i trasferimenti con questa casella contano nel 20% della regola 50/30/20."
+                "Per segnare i soldi messi da parte, fai un Trasferimento dal conto corrente al conto Risparmi e scegli il tipo Risparmio. " +
+                    "Solo i trasferimenti di questo tipo contano nel 20% della regola 50/30/20."
             ),
+            example(
+                "Per mettere da parte i soldi dell'assicurazione che pagherai a giugno, fai un Trasferimento verso un conto dedicato e scegli il tipo Accantonamento. " +
+                    "Non conta come risparmio: è denaro che hai già deciso di spendere. Lo ritrovi in Spese irregolari."
+            ),
+            tip("Negli elenchi degli account, quando registri una transazione, compaiono solo gli account non nascosti."),
             tip("Per correggere una transazione sbagliata, toccala nell'elenco: puoi cambiare tutto o eliminarla.")
         )
     ),
@@ -92,7 +97,8 @@ val guideSections: List<GuideSection> = listOf(
                 "Carta: una carta di credito. Le spese fatte con la carta riducono il saldo della carta; poi, in una data fissa, il conto di addebito la salda con un trasferimento automatico.",
                 "Valore iniziale: il saldo da cui parti quando crei l'account. Può essere negativo.",
                 "Correggi saldo: se il saldo dell'app non coincide con quello reale, scrivi quello corretto. Non crea nessuna transazione, aggiusta solo il punto di partenza.",
-                "Ordina e nascondi account: in Configurazione, per cambiare l'ordine o togliere dalla vista quelli che non usi più."
+                "Investimento: un conto (fondi, azioni, ETF) di cui aggiorni il valore a mano con Aggiorna valore. La differenza cambia il patrimonio ma non conta come entrata o spesa, così non falsa le analisi. I versamenti si registrano come trasferimenti verso il conto.",
+                "Ordina e nascondi account: in Configurazione, per cambiare l'ordine o togliere dalla vista quelli che non usi più. Gli account nascosti non si possono scegliere quando registri una transazione."
             ),
             example(
                 "Carta di credito con inizio periodo 12 e giorno di addebito 24: il 24 di ogni mese l'app crea un trasferimento dal conto alla carta " +
@@ -139,9 +145,10 @@ val guideSections: List<GuideSection> = listOf(
         listOf(
             par("Sono i movimenti che si ripetono. L'app crea da sola la transazione alla scadenza, così non devi ricordartene."),
             bullets(
-                "Abbonamenti: Netflix, palestra, telefono. Vedi il costo mensile e annuale di tutti quelli attivi.",
+                "Abbonamenti: Netflix, palestra, telefono. Vedi il costo mensile e annuale di tutti quelli attivi e il costo annuo di ciascuno. Con il tasto Da rivedere segni quelli di cui non sei sicuro: in alto vedi quanto risparmieresti in un anno disdicendoli e, se le notifiche sono attive, ricevi un avviso nei 3 giorni prima del rinnovo.",
                 "Prestiti: importo della rata, giorno di scadenza e numero di rate rimaste. Vedi il debito residuo stimato.",
-                "Ricorrenti: qualsiasi entrata o uscita periodica, settimanale, mensile o annuale: stipendio, affitto, bollette, paghetta o spesa settimanale. L'importo può essere positivo (entrata) o negativo (uscita)."
+                "Ricorrenti: qualsiasi entrata, uscita o trasferimento periodico, settimanale, mensile o annuale: stipendio, affitto, bollette, paghetta o spesa settimanale.",
+                "Trasferimento ricorrente (facoltativo): serve a mettere da parte il risparmio o l'accantonamento in automatico, ad esempio il giorno dello stipendio. Scegli i due account e il tipo (Risparmio o Accantonamento): con Risparmio l'app ti ricorda il 20% delle tue entrate ricorrenti. Se non lo crei, niente cambia: puoi sempre fare i trasferimenti a mano."
             ),
             par("Registra ora (nelle ricorrenti): serve quando il movimento arriva in anticipo."),
             example(
@@ -153,9 +160,40 @@ val guideSections: List<GuideSection> = listOf(
     ),
 
     GuideSection(
-        "Obiettivi",
+        "Spese irregolari e accantonamento",
         listOf(
-            par("Un obiettivo è una somma che vuoi raggiungere: una vacanza, un'auto, il fondo emergenze. Hai tre modi per far avanzare la barra:"),
+            par(
+                "Alcune spese non arrivano ogni mese: assicurazione, bollo, vacanze, regali, manutenzione dell'auto. Pesano molto nel mese in cui cadono. " +
+                    "Spese irregolari serve a distribuirle su tutto l'anno."
+            ),
+            bullets(
+                "Aggiungi una spesa con un nome, l'importo che prevedi (anche approssimativo) e la data prevista. Se si ripete ogni anno, attiva Si ripete ogni anno.",
+                "Riepilogo: il totale previsto, quanto hai già accantonato, quanto manca e, in grande, quanto mettere da parte ogni mese per tutte le spese insieme.",
+                "Ogni riga mostra la barra di copertura, quanto è già coperto, quanto manca e la quota mensile (quello che manca diviso per i mesi che restano).",
+                "Accantonare: fai un Trasferimento con il tipo Accantonamento verso il conto dove tieni i soldi messi da parte, anche come trasferimento ricorrente. Il totale accantonato compare nel riepilogo.",
+                "Pagare: tocca Segna come pagata. Scrivi l'importo reale, la data, l'account con cui paghi e, se c'è un accantonamento, quanto ne usi: tutto, solo una parte o niente. Se i soldi accantonati stanno su un altro account, l'app sposta da lì la parte usata, così i saldi restano giusti."
+            ),
+            example(
+                "Assicurazione auto prevista a giugno, 600 €, e ne mancano 6 mesi: l'app propone di mettere da parte 100 € al mese. " +
+                    "Se hai già accantonato 150 €, ne mancano 450 e la quota scende a 75 € al mese. " +
+                    "A giugno la paghi 620 €: usi tutti i 600 € accantonati e i restanti 20 € escono dal conto."
+            ),
+            tip("Le spese sono coperte in ordine di data: l'accantonamento va prima a quelle che scadono prima. Quando le stime cambiano, modificale: il piano si aggiorna da solo.")
+        )
+    ),
+
+    GuideSection(
+        "Obiettivi e fondo di emergenza",
+        listOf(
+            par(
+                "In cima a Obiettivi c'è il fondo di emergenza: una riserva per gli imprevisti, di solito pari a 3 o 6 mesi di spese. " +
+                    "L'app calcola la tua spesa media mensile sui mesi già chiusi, la moltiplica per 3 o 6 e mostra a che punto sei. " +
+                    "Scegli tu in quali account tieni la riserva: il loro saldo è quanto hai messo da parte."
+            ),
+            example(
+                "Spendi in media 1.800 € al mese: il fondo da 3 mesi è di 5.400 €. Se nel conto Risparmi ne hai 2.700, sei al 50% e copri 1,5 mesi di spese."
+            ),
+            par("Sotto il fondo ci sono i tuoi obiettivi: una somma che vuoi raggiungere, come una vacanza o un'auto. Hai tre modi per far avanzare la barra:"),
             bullets(
                 "A mano: scrivi tu quanto hai già messo da parte e lo aggiorni quando versi altri soldi.",
                 "Account: l'avanzamento è il saldo di un account di risparmio.",
@@ -369,6 +407,8 @@ val guideSections: List<GuideSection> = listOf(
                 "Tema: automatico (segue il telefono), chiaro o scuro.",
                 "Includi i debiti dei prestiti: toglie dal patrimonio netto il capitale ancora da restituire.",
                 "Notifiche: avvisi per i budget all'80% e al 100% e il giorno prima di scadenze e addebiti della carta.",
+                "Spese sopra la media: una notifica quando in una categoria hai già speso più di una volta e mezza la tua media mensile (almeno 30 € di media e 25 € di differenza), una sola volta al mese per categoria.",
+                "Promemoria serale: una notifica all'ora che scegli, solo se quel giorno non hai inserito nessuna transazione. Se hai già registrato qualcosa, non arriva. Richiede le notifiche attive.",
                 "Blocco dell'app: chiede lo sblocco del telefono all'apertura e nasconde le anteprime nelle app recenti.",
                 "Backup completo: un file con tutto (account, transazioni, categorie, budget, abbonamenti, prestiti, ricorrenti, obiettivi, tag, scontrini). Il ripristino sostituisce i dati attuali.",
                 "Backup automatico: una copia a settimana, anche in una cartella a tua scelta (ad esempio su Google Drive).",

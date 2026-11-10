@@ -112,7 +112,7 @@ interface FinanceDao {
            JOIN accounts a ON a.id = t.accountId
            LEFT JOIN categories c ON c.id = t.categoryId
            LEFT JOIN categories p ON p.id = c.parentId
-           WHERE t.dateMillis < :toMillis AND (t.kind = 'NORMAL' OR t.amountCents < 0)
+           WHERE t.dateMillis < :toMillis AND (t.kind = 'NORMAL' OR (t.kind = 'TRANSFER' AND t.amountCents < 0))
            ORDER BY t.dateMillis DESC, t.id DESC
            LIMIT :limit"""
     )
@@ -196,7 +196,7 @@ interface FinanceDao {
            JOIN accounts a ON a.id = t.accountId
            LEFT JOIN categories c ON c.id = t.categoryId
            LEFT JOIN categories p ON p.id = c.parentId
-           WHERE (t.kind = 'NORMAL' OR t.amountCents < 0)
+           WHERE (t.kind = 'NORMAL' OR (t.kind = 'TRANSFER' AND t.amountCents < 0))
              AND (:accountId IS NULL OR t.accountId = :accountId OR EXISTS (
                    SELECT 1 FROM transactions t3
                    WHERE t3.transferGroupId = t.transferGroupId AND t3.accountId = :accountId))
@@ -230,7 +230,7 @@ interface FinanceDao {
            JOIN accounts a ON a.id = t.accountId
            LEFT JOIN categories c ON c.id = t.categoryId
            LEFT JOIN categories p ON p.id = c.parentId
-           WHERE (t.kind = 'NORMAL' OR t.amountCents < 0)
+           WHERE (t.kind = 'NORMAL' OR (t.kind = 'TRANSFER' AND t.amountCents < 0))
              AND (:accountId IS NULL OR t.accountId = :accountId OR EXISTS (
                    SELECT 1 FROM transactions t3
                    WHERE t3.transferGroupId = t.transferGroupId AND t3.accountId = :accountId))
@@ -359,6 +359,7 @@ interface FinanceDao {
            JOIN accounts a ON a.id = t.accountId
            LEFT JOIN categories c ON c.id = t.categoryId
            LEFT JOIN categories p ON p.id = c.parentId
+           WHERE t.kind <> 'VALUATION'
            ORDER BY t.dateMillis DESC, t.id DESC"""
     )
     suspend fun exportRows(): List<ExportRow>
@@ -579,4 +580,72 @@ interface FinanceDao {
            GROUP BY month"""
     )
     fun observeSavingsByMonth(fromMillis: Long, toMillis: Long): Flow<List<MonthTotal>>
+
+    // --- Spese irregolari e accantonamento
+    @Query("SELECT * FROM irregular_expenses WHERE done = 0 ORDER BY dueEpochDay, name")
+    fun observeIrregular(): Flow<List<IrregularExpenseEntity>>
+
+    @Query("SELECT * FROM irregular_expenses WHERE id = :id")
+    suspend fun irregularById(id: Long): IrregularExpenseEntity?
+
+    @Insert
+    suspend fun insertIrregular(e: IrregularExpenseEntity): Long
+
+    @Update
+    suspend fun updateIrregular(e: IrregularExpenseEntity)
+
+    @Query("DELETE FROM irregular_expenses WHERE id = :id")
+    suspend fun deleteIrregular(id: Long)
+
+    @Query("UPDATE irregular_expenses SET categoryId = NULL WHERE categoryId = :id OR categoryId IN (SELECT id FROM categories WHERE parentId = :id)")
+    suspend fun clearCategoryInIrregular(id: Long)
+
+    @Insert
+    suspend fun insertProvisionUse(u: ProvisionUseEntity): Long
+
+    /** Totale accantonato con i trasferimenti segnati "Accantonamento" (si conta la gamba in uscita). */
+    @Query("SELECT COALESCE(SUM(-amountCents), 0) FROM transactions WHERE kind = 'TRANSFER' AND isProvision = 1 AND amountCents < 0")
+    fun observeProvisionedTotal(): Flow<Long>
+
+    /** Totale dell'accantonamento già usato per pagare spese irregolari. */
+    @Query("SELECT COALESCE(SUM(amountCents), 0) FROM provision_uses")
+    fun observeProvisionUsedTotal(): Flow<Long>
+
+    @Query("SELECT COALESCE(SUM(-amountCents), 0) FROM transactions WHERE kind = 'TRANSFER' AND isProvision = 1 AND amountCents < 0")
+    suspend fun provisionedTotalOnce(): Long
+
+    @Query("SELECT COALESCE(SUM(amountCents), 0) FROM provision_uses")
+    suspend fun provisionUsedTotalOnce(): Long
+
+    /** Account che ha ricevuto più accantonamenti: di solito è il conto dove si tengono i soldi messi da parte. */
+    @Query(
+        """SELECT accountId FROM transactions WHERE kind = 'TRANSFER' AND isProvision = 1 AND amountCents > 0
+           GROUP BY accountId ORDER BY SUM(amountCents) DESC LIMIT 1"""
+    )
+    suspend fun mainProvisionAccountId(): Long?
+
+    // --- Fondo emergenza e avvisi
+    /** Uscite normali del periodo, un totale per mese. */
+    @Query(
+        """SELECT strftime('%Y-%m', t.dateMillis / 1000, 'unixepoch', 'localtime') AS month,
+                  SUM(-t.amountCents) AS totalCents
+           FROM transactions t
+           WHERE t.kind = 'NORMAL' AND t.amountCents < 0 AND t.dateMillis >= :fromMillis AND t.dateMillis < :toMillis
+           GROUP BY month"""
+    )
+    fun observeExpenseByMonth(fromMillis: Long, toMillis: Long): Flow<List<MonthTotal>>
+
+    @Query(
+        """SELECT t.title AS title,
+                  COALESCE(p.id, c.id) AS categoryId,
+                  CASE WHEN c.parentId IS NOT NULL THEN c.id END AS subCategoryId,
+                  COALESCE(p.name, c.name, 'Senza categoria') AS categoryName,
+                  -t.amountCents AS cents,
+                  t.dateMillis AS dateMillis
+           FROM transactions t
+           LEFT JOIN categories c ON c.id = t.categoryId
+           LEFT JOIN categories p ON p.id = c.parentId
+           WHERE t.kind = 'NORMAL' AND t.amountCents < 0 AND t.dateMillis >= :fromMillis AND t.dateMillis < :toMillis"""
+    )
+    suspend fun spendRowsOnce(fromMillis: Long, toMillis: Long): List<SpendRow>
 }

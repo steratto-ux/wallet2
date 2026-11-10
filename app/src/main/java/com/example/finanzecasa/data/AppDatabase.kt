@@ -10,9 +10,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AccountEntity::class, CategoryEntity::class, TransactionEntity::class,
         SubscriptionEntity::class, LoanEntity::class, CardStatementEntity::class,
         BudgetEntity::class, BudgetCategoryEntity::class,
-        RecurringEntity::class, GoalEntity::class
+        RecurringEntity::class, GoalEntity::class,
+        IrregularExpenseEntity::class, ProvisionUseEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -92,5 +93,35 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
+/**
+ * v5 -> v6: accantonamento sui trasferimenti, ricorrenti di tipo trasferimento, spese irregolari,
+ * abbonamenti "da rivedere". Solo aggiunte.
+ */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE transactions ADD COLUMN isProvision INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE subscriptions ADD COLUMN toReview INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE recurring_transactions ADD COLUMN toAccountId INTEGER")
+        db.execSQL("ALTER TABLE recurring_transactions ADD COLUMN transferFlag INTEGER NOT NULL DEFAULT 0")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `irregular_expenses` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`name` TEXT NOT NULL, " +
+                "`estimatedCents` INTEGER NOT NULL, " +
+                "`dueEpochDay` INTEGER NOT NULL, " +
+                "`categoryId` INTEGER, " +
+                "`repeatYearly` INTEGER NOT NULL, " +
+                "`done` INTEGER NOT NULL)"
+        )
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `provision_uses` (" +
+                "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                "`irregularId` INTEGER NOT NULL, " +
+                "`amountCents` INTEGER NOT NULL, " +
+                "`dateEpochDay` INTEGER NOT NULL)"
+        )
+    }
+}
+
 /** Tutte le migrazioni, in un posto solo: ogni nuova versione del database si aggiunge qui. */
-val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)

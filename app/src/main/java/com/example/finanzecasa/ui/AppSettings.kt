@@ -68,6 +68,32 @@ class AppSettings(context: Context) {
     }
     fun clearForecastIgnored() { prefs.edit().remove("forecast_ignored").apply() }
 
+    // --- Avvisi aggiuntivi (v1.1)
+    /** Avviso quando una categoria supera di molto la sua spesa media mensile. */
+    fun unusualAlertsEnabled(): Boolean = prefs.getBoolean("unusual_alerts", true)
+    fun setUnusualAlertsEnabled(on: Boolean) { prefs.edit().putBoolean("unusual_alerts", on).apply() }
+
+    /** Promemoria serale: parte solo se durante la giornata non è stata inserita nessuna transazione. */
+    fun reminderEnabled(): Boolean = prefs.getBoolean("reminder", false)
+    fun setReminderEnabled(on: Boolean) { prefs.edit().putBoolean("reminder", on).apply() }
+    fun reminderHour(): Int = prefs.getInt("reminder_hour", 21).coerceIn(0, 23)
+    fun setReminderHour(h: Int) { prefs.edit().putInt("reminder_hour", h.coerceIn(0, 23)).apply() }
+
+    /** Ultimo giorno in cui l'utente ha inserito una transazione dal modulo, e ultimo giorno del promemoria. */
+    fun lastEntryEpochDay(): Long = prefs.getLong("last_entry_day", -1L)
+    fun setLastEntryEpochDay(day: Long) { prefs.edit().putLong("last_entry_day", day).apply() }
+    fun lastReminderEpochDay(): Long = prefs.getLong("last_reminder_day", -1L)
+    fun setLastReminderEpochDay(day: Long) { prefs.edit().putLong("last_reminder_day", day).apply() }
+
+    // --- Fondo di emergenza: mesi di spese da coprire e conti dove si tiene
+    fun emergencyMonths(): Int = prefs.getInt("emergency_months", 3)
+    fun setEmergencyMonths(m: Int) { prefs.edit().putInt("emergency_months", m).apply() }
+    fun emergencyAccountIds(): Set<Long> =
+        (prefs.getStringSet("emergency_accounts", emptySet()) ?: emptySet()).mapNotNull { it.toLongOrNull() }.toSet()
+    fun setEmergencyAccountIds(ids: Set<Long>) {
+        prefs.edit().putStringSet("emergency_accounts", ids.map { it.toString() }.toSet()).apply()
+    }
+
     // --- Nome dell'utente, per il saluto nella schermata principale
     fun userName(): String = prefs.getString("user_name", "") ?: ""
     fun setUserName(name: String) { prefs.edit().putString("user_name", name.trim()).apply() }
@@ -84,4 +110,6 @@ class AppSettings(context: Context) {
 
     fun forecastIgnoredFlow(): Flow<Set<String>> = changes("forecast_ignored") { forecastIgnored() }
     fun userNameFlow(): Flow<String> = changes("user_name") { userName() }
+    fun emergencyFlow(): Flow<Pair<Int, Set<Long>>> =
+        changes("emergency_months", "emergency_accounts") { emergencyMonths() to emergencyAccountIds() }
 }

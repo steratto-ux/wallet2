@@ -55,6 +55,8 @@ import com.example.finanzecasa.ui.HomeScreen
 import com.example.finanzecasa.ui.LoanFormScreen
 import com.example.finanzecasa.ui.LoansScreen
 import com.example.finanzecasa.ui.NewTransactionScreen
+import com.example.finanzecasa.ui.IrregularFormScreen
+import com.example.finanzecasa.ui.IrregularScreen
 import com.example.finanzecasa.ui.RecurringFormScreen
 import com.example.finanzecasa.ui.RecurringScreen
 import com.example.finanzecasa.ui.ReportsScreen
@@ -197,6 +199,7 @@ private fun AppRoot(
     val back: () -> Unit = {
         route = when (route) {
             "subscriptionForm", "loanForm", "recurringForm" -> returnTo
+            "irregularForm" -> "irregular"
             "goalForm" -> "goals"
             "accountsOrder", "guide" -> "settings"
             "editTransaction", "budgetForm", "budgetHistory" -> returnTo
@@ -222,6 +225,8 @@ private fun AppRoot(
         "loanForm" -> LoanFormScreen(id = editId, onClose = back)
         "recurring" -> RecurringScreen(onBack = back, onOpenForm = { editId = it; returnTo = "recurring"; route = "recurringForm" })
         "recurringForm" -> RecurringFormScreen(id = editId, onClose = back)
+        "irregular" -> IrregularScreen(onBack = back, onOpenForm = { editId = it; route = "irregularForm" })
+        "irregularForm" -> IrregularFormScreen(id = editId, onClose = back)
         "goals" -> GoalsScreen(onBack = back, onOpenForm = { editId = it; route = "goalForm" })
         "goalForm" -> GoalFormScreen(id = editId, onClose = back)
         "reports" -> ReportsScreen(onBack = back)

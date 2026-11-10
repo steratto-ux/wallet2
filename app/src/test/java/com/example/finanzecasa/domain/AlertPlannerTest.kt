@@ -50,4 +50,20 @@ class AlertPlannerTest {
         val drop = setOf("b|1|2026-10|100", "d|sub|1|${today.minusDays(30).toEpochDay()}", "strano")
         assertEquals(keep, AlertPlanner.prune(keep + drop, today))
     }
+
+    @Test fun reviewAlertWarnsThreeDaysBeforeRenewal() {
+        val today = java.time.LocalDate.of(2026, 11, 10)
+        val soon = DueInput("sub", 7, "Netflix", 1_299, today.plusDays(2))
+        val far = DueInput("sub", 8, "Palestra", 3_000, today.plusDays(5))
+        val alerts = AlertPlanner.reviewAlerts(listOf(soon, far), today, fmt)
+        assertEquals(1, alerts.size)
+        assertEquals("d|rev|7|${today.plusDays(2).toEpochDay()}", alerts.single().key)
+        assertTrue(alerts.single().text.contains("tra 2 giorni"))
+    }
+
+    @Test fun unusualSpendKeysAreKeptOnlyForTheCurrentMonth() {
+        val today = java.time.LocalDate.of(2026, 11, 10)
+        val kept = AlertPlanner.prune(setOf("u|3|2026-11", "u|3|2026-10"), today)
+        assertEquals(setOf("u|3|2026-11"), kept)
+    }
 }

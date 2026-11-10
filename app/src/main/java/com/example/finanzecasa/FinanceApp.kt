@@ -9,6 +9,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.example.finanzecasa.alerts.AlertsChecker
+import com.example.finanzecasa.alerts.ReminderScheduler
 import com.example.finanzecasa.backup.AutoBackup
 import com.example.finanzecasa.data.ALL_MIGRATIONS
 import com.example.finanzecasa.data.AppDatabase
@@ -37,11 +38,13 @@ class FinanceApp : Application() {
         val request = PeriodicWorkRequestBuilder<DailyFinanceWorker>(3, TimeUnit.HOURS).build()
         WorkManager.getInstance(this)
             .enqueueUniquePeriodicWork("daily-finance", ExistingPeriodicWorkPolicy.UPDATE, request)
+        // Promemoria serale (solo se attivo nelle impostazioni)
+        runCatching { ReminderScheduler.schedule(this) }
     }
 
     companion object {
         const val DB_NAME = "finanze.db"
-        const val DB_VERSION = 5 // deve coincidere con @Database(version = ...)
+        const val DB_VERSION = 6 // deve coincidere con @Database(version = ...)
     }
 }
 

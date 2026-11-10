@@ -95,7 +95,7 @@ fun NewTransactionScreen(
     onClose: () -> Unit,
     vm: NewTransactionViewModel = viewModel()
 ) {
-    val accounts by vm.accounts.collectAsState()
+    val allAccounts by vm.accounts.collectAsState()
     val categories by vm.categories.collectAsState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -115,7 +115,7 @@ fun NewTransactionScreen(
     var confirmDelete by remember { mutableStateOf(false) }
     var loaded by rememberSaveable { mutableStateOf(transactionId == null) }
     var tagsText by rememberSaveable { mutableStateOf("") }
-    var isSavings by rememberSaveable { mutableStateOf(false) }
+    var transferFlag by rememberSaveable { mutableStateOf(0) } // 0 = nessuno, 1 = Risparmio, 2 = Accantonamento
     var suggestions by remember { mutableStateOf<List<TitleSuggestion>>(emptyList()) }
     val amountFocus = remember { FocusRequester() }
     var receiptPath by rememberSaveable { mutableStateOf<String?>(null) }
@@ -156,7 +156,7 @@ fun NewTransactionScreen(
                 dateTime = t.dateTime
                 tagsText = t.tags
                 receiptPath = t.receiptPath
-                isSavings = t.isSavings
+                transferFlag = if (t.isSavings) 1 else if (t.isProvision) 2 else 0
             }
             loaded = true
         }
@@ -177,6 +177,8 @@ fun NewTransactionScreen(
         }
     }
 
+    // Gli account nascosti non si possono scegliere (tranne quelli già usati da questa transazione)
+    val accounts = selectableAccounts(allAccounts, selectedAccountId, selectedToId)
     val accountId = selectedAccountId?.takeIf { id -> accounts.any { it.id == id } } ?: accounts.firstOrNull()?.id
     val toId = selectedToId?.takeIf { id -> id != accountId && accounts.any { it.id == id } }
         ?: accounts.firstOrNull { it.id != accountId }?.id
@@ -309,19 +311,19 @@ fun NewTransactionScreen(
                     value = accounts.firstOrNull { it.id == toId }?.name ?: "Nessun account",
                     entries = accounts.filter { it.id != accountId }.map { a -> a.name to { selectedToId = a.id; error = null } }
                 )
-                Row(
-                    Modifier.fillMaxWidth().clickable { isSavings = !isSavings },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(checked = isSavings, onCheckedChange = { isSavings = it })
-                    Column(Modifier.weight(1f)) {
-                        Text("Risparmio", style = MaterialTheme.typography.bodyLarge)
-                        Text(
-                            "Conta nel 20% della regola 50/30/20 (Analisi).",
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                Text("Tipo di trasferimento", style = MaterialTheme.typography.labelLarge)
+                SegmentedChoice(
+                    options = listOf(0 to "Normale", 1 to "Risparmio", 2 to "Accantonamento"),
+                    selected = transferFlag, onSelect = { transferFlag = it }
+                )
+                Text(
+                    when (transferFlag) {
+                        1 -> "Conta nel 20% della regola 50/30/20 (Analisi)."
+                        2 -> "Mette da parte denaro per le spese irregolari (assicurazione, bollo, vacanze…). Lo ritrovi in Spese irregolari."
+                        else -> "Sposta denaro tra due tuoi account, senza cambiare il patrimonio."
+                    },
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             // Data e ora
@@ -354,9 +356,10 @@ fun NewTransactionScreen(
                             error = "Scegli due account diversi."
                         else -> scope.launch {
                             if (transactionId == null) {
-                                vm.save(type, title.trim(), cents, accountId, toId, categoryId, dateTime, note.trim(), tagsText, receiptPath, isSavings && type == TxType.TRANSFER)
+                                vm.save(type, title.trim(), cents, accountId, toId, categoryId, dateTime, note.trim(), tagsText, receiptPath, transferFlag == 1 && type == TxType.TRANSFER, transferFlag == 2 && type == TxType.TRANSFER)
+                                runCatching { AppSettings(context).setLastEntryEpochDay(LocalDate.now().toEpochDay()) }
                             } else {
-                                vm.update(transactionId, type, title.trim(), cents, accountId, toId, categoryId, dateTime, note.trim(), tagsText, receiptPath, isSavings && type == TxType.TRANSFER)
+                                vm.update(transactionId, type, title.trim(), cents, accountId, toId, categoryId, dateTime, note.trim(), tagsText, receiptPath, transferFlag == 1 && type == TxType.TRANSFER, transferFlag == 2 && type == TxType.TRANSFER)
                             }
                             val msg = if (isFuture) "Programmata: verrà conteggiata il ${dateTime.format(whenFmt)}"
                             else "Transazione salvata"
