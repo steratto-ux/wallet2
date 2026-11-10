@@ -48,7 +48,7 @@ class ReminderWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(c
             )
             settings.setLastReminderEpochDay(now.toLocalDate().toEpochDay())
         }
-        schedule(context)
+        ReminderScheduler.schedule(context)
         return Result.success()
     }
 }
