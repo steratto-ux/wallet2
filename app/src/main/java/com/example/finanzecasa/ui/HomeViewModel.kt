@@ -32,6 +32,8 @@ data class HomeState(
     val loanDebtCents: Long = 0, // debiti sottratti dal patrimonio netto (0 se l'opzione è spenta)
     val monthExpensesCents: Long = 0,
     val monthIncomeCents: Long = 0,
+    val yearSavedCents: Long = 0,        // trasferimenti "Risparmio" dall'inizio dell'anno in corso
+    val yearProvisionedCents: Long = 0,  // trasferimenti "Accantonamento" dall'inizio dell'anno in corso
     val recent: List<TransactionRow> = emptyList(),
     val range: ChartRange = ChartRange.MONTH,
     val chart: List<BalancePoint> = emptyList(),
@@ -110,9 +112,19 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                         to = today
                     )
                 }
+                // Risparmio e accantonamento ripartono da zero ogni 1° gennaio: si contano solo i trasferimenti dell'anno
+                val yearFrom = today.withDayOfYear(1).atStartOfDay().toMillis()
+                val saved = combine(
+                    dao.observeSavedBetween(yearFrom, upTo), dao.observeProvisionedBetween(yearFrom, upTo)
+                ) { a, b -> a to b }
                 combine(
-                    core, chart, budgetCards(dao, now), dao.observeCategorySpend(spendFrom, spendTo)
-                ) { c, ch, bu, sp -> c.copy(chart = ch, budgets = bu, categorySpend = sp) }
+                    core, chart, budgetCards(dao, now), dao.observeCategorySpend(spendFrom, spendTo), saved
+                ) { c, ch, bu, sp, sv ->
+                    c.copy(
+                        chart = ch, budgets = bu, categorySpend = sp,
+                        yearSavedCents = sv.first, yearProvisionedCents = sv.second
+                    )
+                }
             }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeState())
 }

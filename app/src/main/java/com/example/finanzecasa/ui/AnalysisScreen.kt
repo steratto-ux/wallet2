@@ -31,6 +31,10 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.Button
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -267,9 +271,16 @@ fun AnalysisScreen(onBack: () -> Unit, vm: AnalysisViewModel = viewModel()) {
     val st by vm.state.collectAsState()
     val target by vm.target.collectAsState()
     val d = st.data
+    var showAi by remember { mutableStateOf(false) }
 
     ScreenScaffold("Analisi", onBack = onBack) { inner ->
         FormColumn(inner) {
+            // Analisi AI: un report testuale sullo stato delle finanze, solo quando lo chiedi
+            Button(onClick = { showAi = true }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Outlined.AutoAwesome, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Analisi AI")
+            }
             if (d == null) {
                 Text("Calcolo in corso…", style = MaterialTheme.typography.bodyMedium)
             } else {
@@ -281,6 +292,7 @@ fun AnalysisScreen(onBack: () -> Unit, vm: AnalysisViewModel = viewModel()) {
             }
         }
     }
+    if (showAi) AiAnalysisDialog(analysis = d, onDismiss = { showAi = false })
 }
 
 // ---------------------------------------------------------------- 1. Previsione di fine mese

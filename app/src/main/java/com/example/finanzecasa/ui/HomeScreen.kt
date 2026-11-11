@@ -155,6 +155,21 @@ fun HomeScreen(
                 }
             }
 
+            // 2b. Risparmio e accantonamento dell'anno in corso (ripartono da zero a gennaio)
+            item {
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SummaryBox(
+                        "Ho risparmiato", formatMoney(state.yearSavedCents), MaterialTheme.colorScheme.primary,
+                        Modifier.weight(1f).fillMaxHeight(), note = "nel ${state.now.year}"
+                    )
+                    SummaryBox(
+                        "Ho accantonato", formatMoney(state.yearProvisionedCents), MaterialTheme.colorScheme.primary,
+                        Modifier.weight(1f).fillMaxHeight(), note = "nel ${state.now.year}",
+                        onClick = { onOpen("irregular") }
+                    )
+                }
+            }
+
             // 3. Budget mensili
             if (state.budgets.isNotEmpty()) {
                 item {
@@ -247,10 +262,14 @@ private fun AccountBox(a: AccountBalance, modifier: Modifier, onClick: () -> Uni
 }
 
 @Composable
-private fun SummaryBox(label: String, value: String, valueColor: Color, modifier: Modifier) {
-    AppCard(modifier, padding = 14.dp) {
+private fun SummaryBox(
+    label: String, value: String, valueColor: Color, modifier: Modifier,
+    note: String? = null, onClick: (() -> Unit)? = null
+) {
+    AppCard(modifier, onClick = onClick, padding = 14.dp) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(value, style = MaterialTheme.typography.titleLarge, color = valueColor)
+        if (note != null) Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

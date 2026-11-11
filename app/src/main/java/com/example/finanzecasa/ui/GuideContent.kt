@@ -47,6 +47,7 @@ val guideSections: List<GuideSection> = listOf(
                 "Account: i riquadri che scorrono in orizzontale. Ognuno ha colore e icona scelti da te, il nome e il saldo (in rosso se è negativo). Toccandolo lo modifichi; l'ultimo riquadro, Nuovo account, ne crea uno.",
                 "Entrate del mese (a sinistra) e Spese del mese (a destra): il totale dal giorno 1 a oggi. I trasferimenti tra i tuoi account non contano, perché i soldi non escono dal tuo patrimonio.",
                 "Budget: una scheda per ogni budget, affiancate e scorrevoli in orizzontale come gli account, con la barra che si riempie man mano che spendi. La percentuale è al centro, l'indicatore Oggi mostra a che punto del mese sei: se la barra è più avanti di Oggi stai spendendo più in fretta del previsto. Sotto vedi quanto puoi ancora spendere al giorno oppure di quanto hai sforato.",
+                "Ho risparmiato e Ho accantonato: due riquadri sotto Entrate e Spese del mese. Sommano i trasferimenti di tipo Risparmio e di tipo Accantonamento fatti dal 1° gennaio dell'anno in corso: a gennaio ripartono da zero, così vedi l'impegno dell'anno. Toccando Ho accantonato apri Spese irregolari, dove trovi il totale accantonato che ancora non hai usato.",
                 "Spese per categoria: la ciambella del mese. Ogni colore è una categoria principale, con importo e percentuale sul totale. Il titolo sta su una riga e sotto, al centro, c'è il mese con le frecce per andare indietro e avanti; toccando una categoria vedi le sue sotto-categorie.",
                 "Patrimonio netto: la somma dei saldi di tutti gli account (carte di credito comprese, che di solito sono negative). Il grafico mostra l'andamento; con 1 mese, 3 mesi, 6 mesi o 1 anno scegli quanto indietro guardare. Se in Configurazione attivi Includi i debiti dei prestiti, il capitale ancora da restituire viene sottratto.",
                 "Ultime transazioni: le ultime 10 registrate. Vedi tutte apre l'elenco completo con la ricerca.",
@@ -71,7 +72,7 @@ val guideSections: List<GuideSection> = listOf(
             bullets(
                 "Mesi: in alto i nomi del mese precedente, di quello mostrato (in grassetto) e del successivo. Scorri la griglia a destra e a sinistra, oppure tocca i nomi laterali. Oggi riporta al mese e al giorno corrente.",
                 "Totali del mese: sotto i nomi trovi le uscite (freccia rossa in giù), le entrate (freccia verde in su) e il saldo del mese dopo il segno =. Comprendono anche le transazioni con data futura dello stesso mese; i trasferimenti non contano.",
-                "Ogni giorno mostra dei puntini e un importo: rosso se ci sono uscite, verde se ci sono entrate, grigio per i trasferimenti, azzurro per le cose ancora da venire (transazioni con data futura, abbonamenti, rate e ricorrenti previste). L'importo è il saldo di quel giorno, entrate meno uscite; 0 € se non c'è nulla. I giorni con movimenti hanno un bordo, oggi è evidenziato.",
+                "Ogni giorno mostra dei puntini e un importo: rosso se ci sono uscite, verde se ci sono entrate, grigio per i trasferimenti, azzurro per le cose ancora da venire (transazioni con data futura, abbonamenti, rate e ricorrenti previste). L'importo è il saldo di quel giorno, entrate meno uscite, arrotondato agli euro (da 1.000 € in migliaia, ad esempio 1,2k €) perché sia indicativo e stia nella casella; 0 € se non c'è nulla. I giorni con movimenti hanno un bordo, oggi è evidenziato.",
                 "Tocca un giorno per selezionarlo: in basso compare l'elenco delle sue transazioni (toccane una per modificarla) e, sotto Previste, le scadenze programmate di quel giorno.",
                 "Il + sul giorno selezionato apre una nuova transazione già con quella data: dopo il salvataggio torni al calendario."
             )
@@ -131,6 +132,7 @@ val guideSections: List<GuideSection> = listOf(
             ),
             bullets(
                 "Icona: scelta automatica dal nome, oppure la scegli tu.",
+                "Spostare una categoria: tocca la categoria e cambia Sotto-categoria di. Così sposti una sotto-categoria in un altro gruppo, oppure la rendi una categoria principale scegliendo Nessuna. Le transazioni collegate la seguono. Una categoria che ha sotto-categorie resta principale (si va su due livelli soli).",
                 "Nella regola 50/30/20: per ogni categoria, principale o sotto-categoria, puoi decidere se è una Necessità o un Desiderio. Con Auto la decide l'app dal nome (affitto, bollette, spesa, trasporti, salute sono necessità); per una sotto-categoria Come principale significa che segue la categoria principale."
             ),
             example(
@@ -163,6 +165,7 @@ val guideSections: List<GuideSection> = listOf(
                 "Abbonamenti: Netflix, palestra, telefono. Vedi il costo mensile e annuale di tutti quelli attivi e il costo annuo di ciascuno. Con il tasto Da rivedere segni quelli di cui non sei sicuro: in alto vedi quanto risparmieresti in un anno disdicendoli e, se le notifiche sono attive, ricevi un avviso nei 3 giorni prima del rinnovo.",
                 "Prestiti: importo della rata, giorno di scadenza e numero di rate rimaste. Vedi il debito residuo stimato.",
                 "Ricorrenti: qualsiasi entrata, uscita o trasferimento periodico, settimanale, mensile o annuale: stipendio, affitto, bollette, paghetta o spesa settimanale.",
+                "Durata: di una ricorrente scegli Per sempre (il comportamento di prima, valido per tutte quelle già esistenti) oppure Numero di scadenze. Ad esempio un acquisto diviso in 3 rate mensili: imposti Mensile, Numero di scadenze e 3. Dopo la terza l'app si ferma da sola e la voce resta nell'elenco come conclusa. Nel calendario e nella previsione compaiono solo le scadenze che restano.",
                 "Trasferimento ricorrente (facoltativo): serve a mettere da parte il risparmio o l'accantonamento in automatico, ad esempio il giorno dello stipendio. Scegli i due account e il tipo (Risparmio o Accantonamento): con Risparmio l'app ti ricorda il 20% delle tue entrate ricorrenti. Se non lo crei, niente cambia: puoi sempre fare i trasferimenti a mano."
             ),
             par("Registra ora (nelle ricorrenti): serve quando il movimento arriva in anticipo."),
@@ -276,6 +279,13 @@ val guideSections: List<GuideSection> = listOf(
                 "Spese fisse e variabili: quanto è inevitabile e quanto dipende da te.",
                 "E se risparmiassi di più?: un simulatore con il tuo obiettivo di risparmio.",
                 "Piccole spese che si ripetono: i caffè e gli acquisti piccoli che sommati pesano."
+            ),
+            par(
+                "In cima alla schermata c'è il pulsante Analisi AI: quando lo tocchi, un'intelligenza artificiale legge un riepilogo dei tuoi dati " +
+                    "(saldi, totali mensili, spese per categoria, budget, prestiti, abbonamenti, obiettivi) e scrive un report in italiano sullo stato e sull'andamento " +
+                    "delle tue finanze, con i punti di attenzione e tre azioni per il mese dopo. Parte solo quando lo chiedi e il report resta salvato sul telefono. " +
+                    "Prima di usarla inserisci in Configurazione la tua chiave API di Anthropic (console.anthropic.com, API keys): ha un costo a consumo, in genere pochi centesimi per analisi. " +
+                    "Non vengono mai inviati i titoli, le note e le foto delle singole transazioni. Il report può sbagliare e non è una consulenza finanziaria."
             ),
             tip("Un buon giro di controllo è una volta a settimana: guarda la previsione, poi la regola 50/30/20 del mese e, se qualcosa non va, il simulatore.")
         )
@@ -424,6 +434,7 @@ val guideSections: List<GuideSection> = listOf(
                 "Notifiche: avvisi per i budget all'80% e al 100% e il giorno prima di scadenze e addebiti della carta.",
                 "Spese sopra la media: una notifica quando in una categoria hai già speso più di una volta e mezza la tua media mensile (almeno 30 € di media e 25 € di differenza), una sola volta al mese per categoria.",
                 "Promemoria serale: una notifica all'ora che scegli, solo se quel giorno non hai inserito nessuna transazione. Se hai già registrato qualcosa, non arriva. Richiede le notifiche attive.",
+                "Analisi AI: la chiave API personale e il modello (Haiku più economico, Sonnet consigliato, Opus più accurato). La chiave resta solo sul telefono.",
                 "Blocco dell'app: chiede lo sblocco del telefono all'apertura e nasconde le anteprime nelle app recenti.",
                 "Backup completo: un file con tutto (account, transazioni, categorie, budget, abbonamenti, prestiti, ricorrenti, obiettivi, tag, scontrini). Il ripristino sostituisce i dati attuali.",
                 "Backup automatico: una copia a settimana, anche in una cartella a tua scelta (ad esempio su Google Drive).",

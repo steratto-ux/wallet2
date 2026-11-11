@@ -150,6 +150,9 @@ interface FinanceDao {
     @Update
     suspend fun updateCategory(c: CategoryEntity)
 
+    @Query("SELECT EXISTS(SELECT 1 FROM categories WHERE parentId = :id)")
+    suspend fun hasChildren(id: Long): Boolean
+
     @Query("UPDATE transactions SET categoryId = NULL WHERE categoryId = :id OR categoryId IN (SELECT id FROM categories WHERE parentId = :id)")
     suspend fun clearCategoryInTransactions(id: Long)
 
@@ -625,6 +628,20 @@ interface FinanceDao {
     /** Totale accantonato con i trasferimenti segnati "Accantonamento" (si conta la gamba in uscita). */
     @Query("SELECT COALESCE(SUM(-amountCents), 0) FROM transactions WHERE kind = 'TRANSFER' AND isProvision = 1 AND amountCents < 0")
     fun observeProvisionedTotal(): Flow<Long>
+
+    /** Risparmio del periodo: trasferimenti segnati "Risparmio" (si conta la gamba in uscita). */
+    @Query(
+        "SELECT COALESCE(SUM(-amountCents), 0) FROM transactions WHERE kind = 'TRANSFER' AND isSavings = 1 " +
+            "AND amountCents < 0 AND dateMillis >= :fromMillis AND dateMillis < :toMillis"
+    )
+    fun observeSavedBetween(fromMillis: Long, toMillis: Long): Flow<Long>
+
+    /** Accantonamento del periodo: trasferimenti segnati "Accantonamento" (si conta la gamba in uscita). */
+    @Query(
+        "SELECT COALESCE(SUM(-amountCents), 0) FROM transactions WHERE kind = 'TRANSFER' AND isProvision = 1 " +
+            "AND amountCents < 0 AND dateMillis >= :fromMillis AND dateMillis < :toMillis"
+    )
+    fun observeProvisionedBetween(fromMillis: Long, toMillis: Long): Flow<Long>
 
     /** Totale dell'accantonamento già usato per pagare spese irregolari. */
     @Query("SELECT COALESCE(SUM(amountCents), 0) FROM provision_uses")

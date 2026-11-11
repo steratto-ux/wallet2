@@ -147,7 +147,9 @@ data class RecurringEntity(
     val active: Boolean = true,
     // Aggiunti nella v6: se toAccountId è valorizzato la ricorrente è un trasferimento (importo positivo)
     val toAccountId: Long? = null,
-    val transferFlag: Int = 0                // 0 = nessuno, 1 = risparmio, 2 = accantonamento
+    val transferFlag: Int = 0,               // 0 = nessuno, 1 = risparmio, 2 = accantonamento
+    // Aggiunto nella v7: durata. 0 = per sempre, N > 0 = restano N scadenze, -1 = conclusa
+    val remainingOccurrences: Int = 0
 )
 
 /** Spesa irregolare prevista (assicurazione, bollo, vacanza...): serve a calcolare quanto mettere da parte ogni mese. */

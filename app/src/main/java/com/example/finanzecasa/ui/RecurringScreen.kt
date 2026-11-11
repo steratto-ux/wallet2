@@ -92,9 +92,19 @@ fun RecurringScreen(onBack: () -> Unit, onOpenForm: (Long?) -> Unit, vm: ManageV
                 AppCard(Modifier.fillMaxWidth(), onClick = { onOpenForm(r.id) }) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text(r.title + if (r.active) "" else " (in pausa)", style = MaterialTheme.typography.titleMedium)
+                            val finished = r.remainingOccurrences < 0
                             Text(
-                                "${cadenceName(r.cadence)} · prossima ${formatDate(LocalDate.ofEpochDay(r.nextDueEpochDay))} · $where",
+                                r.title + when { finished -> " (conclusa)"; !r.active -> " (in pausa)"; else -> "" },
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            val durationLabel = when {
+                                finished -> " · ultima scadenza registrata"
+                                r.remainingOccurrences == 1 -> " · ultima scadenza"
+                                r.remainingOccurrences > 1 -> " · ancora ${r.remainingOccurrences} scadenze"
+                                else -> ""
+                            }
+                            Text(
+                                "${cadenceName(r.cadence)}$durationLabel · prossima ${formatDate(LocalDate.ofEpochDay(r.nextDueEpochDay))} · $where",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -151,6 +161,8 @@ fun RecurringFormScreen(id: Long?, onClose: () -> Unit, vm: ManageViewModel = vi
     var toAccountId by rememberSaveable { mutableStateOf<Long?>(null) }
     var transferFlag by rememberSaveable { mutableStateOf(0) } // 0 = nessuno, 1 = risparmio, 2 = accantonamento
     var cadence by rememberSaveable { mutableStateOf(Cadence.MONTHLY) }
+    var forever by rememberSaveable { mutableStateOf(true) }   // durata: per sempre oppure un numero di scadenze
+    var countText by rememberSaveable { mutableStateOf("") }
     var dueDate by rememberSaveable { mutableStateOf(LocalDate.now()) }
     var accountId by rememberSaveable { mutableStateOf<Long?>(null) }
     var categoryId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -170,6 +182,8 @@ fun RecurringFormScreen(id: Long?, onClose: () -> Unit, vm: ManageViewModel = vi
                 toAccountId = r.toAccountId
                 transferFlag = r.transferFlag
                 cadence = r.cadence
+                forever = r.remainingOccurrences <= 0
+                countText = if (r.remainingOccurrences > 0) r.remainingOccurrences.toString() else ""
                 dueDate = LocalDate.ofEpochDay(r.nextDueEpochDay)
                 accountId = r.accountId
                 categoryId = r.categoryId
@@ -197,8 +211,26 @@ fun RecurringFormScreen(id: Long?, onClose: () -> Unit, vm: ManageViewModel = vi
                 options = listOf(Cadence.WEEKLY to "Settimanale", Cadence.MONTHLY to "Mensile", Cadence.YEARLY to "Annuale"),
                 selected = cadence, onSelect = { cadence = it }
             )
+            Text("Durata", style = MaterialTheme.typography.labelLarge)
+            SegmentedChoice(
+                options = listOf(true to "Per sempre", false to "Numero di scadenze"),
+                selected = forever, onSelect = { forever = it; error = null }
+            )
+            if (!forever) {
+                IntInput(if (id == null) "Quante scadenze in tutto (es. 3 rate)" else "Scadenze ancora da registrare", countText) {
+                    countText = it.take(4); error = null
+                }
+                val n = countText.toIntOrNull()
+                val each = parseAmountToCents(amountText)
+                Text(
+                    if (n != null && n > 0 && each != null)
+                        "${n} × ${formatMoney(each)} = ${formatMoney(each * n)}. Dopo l'ultima scadenza la ricorrente si ferma da sola."
+                    else "Dopo l'ultima scadenza la ricorrente si ferma da sola.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             OutlinedButton(onClick = { showDate = true }, modifier = Modifier.fillMaxWidth()) {
-                Text("Prossima scadenza: ${formatDate(dueDate)}")
+                Text(if (forever) "Prossima scadenza: ${formatDate(dueDate)}" else "Prima scadenza: ${formatDate(dueDate)}")
             }
             if (dueDate.isBefore(LocalDate.now())) {
                 Text(
@@ -242,8 +274,10 @@ fun RecurringFormScreen(id: Long?, onClose: () -> Unit, vm: ManageViewModel = vi
                 modifier = Modifier.fillMaxWidth(),
                 onClick = {
                     val cents = parseAmountToCents(amountText)
+                    val count = countText.toIntOrNull()
                     when {
                         title.isBlank() -> error = "Inserisci un titolo."
+                        !forever && (count == null || count < 1) -> error = "Inserisci quante scadenze (almeno 1)."
                         cents == null -> error = "Inserisci un importo maggiore di zero."
                         effectiveAccountId == null -> error = "Non ci sono account: creane uno dalla schermata principale."
                         isTransfer && (effectiveToId == null || effectiveToId == effectiveAccountId) ->
@@ -258,7 +292,8 @@ fun RecurringFormScreen(id: Long?, onClose: () -> Unit, vm: ManageViewModel = vi
                                     accountId = effectiveAccountId,
                                     categoryId = if (isTransfer) null else categoryId, active = active,
                                     toAccountId = if (isTransfer) effectiveToId else null,
-                                    transferFlag = if (isTransfer) transferFlag else 0
+                                    transferFlag = if (isTransfer) transferFlag else 0,
+                                    remainingOccurrences = if (forever) RecurringSchedule.FOREVER else (count ?: 1),
                                 )
                             )
                             onClose()

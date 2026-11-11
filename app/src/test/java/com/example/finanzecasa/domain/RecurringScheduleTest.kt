@@ -30,4 +30,22 @@ class RecurringScheduleTest {
     fun yearlyMovesToTheNextYear() {
         assertEquals(LocalDate.of(2027, 3, 15), RecurringSchedule.following(LocalDate.of(2026, 3, 15), Cadence.YEARLY, 15))
     }
+
+    @Test
+    fun foreverNeverChanges() {
+        assertEquals(RecurringSchedule.FOREVER, RecurringSchedule.remainingAfter(RecurringSchedule.FOREVER))
+    }
+
+    @Test
+    fun threeInstallmentsEndAfterTheThird() {
+        var remaining = 3
+        remaining = RecurringSchedule.remainingAfter(remaining)
+        assertEquals(2, remaining)
+        remaining = RecurringSchedule.remainingAfter(remaining)
+        assertEquals(1, remaining)
+        remaining = RecurringSchedule.remainingAfter(remaining)
+        assertEquals(RecurringSchedule.FINISHED, remaining)
+        // una volta conclusa resta conclusa
+        assertEquals(RecurringSchedule.FINISHED, RecurringSchedule.remainingAfter(remaining))
+    }
 }

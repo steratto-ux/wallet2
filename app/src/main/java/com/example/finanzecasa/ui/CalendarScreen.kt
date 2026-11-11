@@ -401,13 +401,16 @@ private fun DayCell(
     }
 }
 
-/** Importo corto per le celle: centesimi sotto i 100 €, euro interi fino a 10.000 €, poi in migliaia. */
+/**
+ * Importo indicativo per le celle del calendario: euro interi (arrotondati), e in migliaia da 1.000 €
+ * ("1,2k €", "12k €"), così sta sempre dentro la casella del giorno.
+ */
 internal fun compactMoney(cents: Long): String {
-    val a = abs(cents)
+    val euros = (abs(cents) + 50) / 100
     return when {
-        a < 10_000 -> formatMoneyShort(a)
-        a < 1_000_000 -> formatMoneyShort((a + 50) / 100 * 100)
-        else -> "${a / 100_000}k €"
+        euros < 1_000 -> "$euros €"
+        euros < 10_000 -> String.format(Locale.ITALIAN, "%.1f", euros / 1000.0).removeSuffix(",0") + "k €"
+        else -> "${euros / 1000}k €"
     }
 }
 

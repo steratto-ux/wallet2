@@ -12,8 +12,8 @@ android {
         applicationId = "com.example.finanzecasa"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.2"
+        versionCode = 8
+        versionName = "1.3"
     }
     // Firma fissa (chiave inclusa nel progetto): ogni nuova versione si installa SOPRA la precedente
     // senza cancellare i dati. Senza una chiave fissa, GitHub genererebbe una firma diversa a ogni compilazione.

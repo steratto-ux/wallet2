@@ -315,6 +315,8 @@ fun SettingsScreen(
                 }
             }
 
+            AiSettingsCard(settings)
+
             Text("Backup completo", style = MaterialTheme.typography.titleMedium)
             AppCard(Modifier.fillMaxWidth()) {
                 Text("Salva e ripristina tutto", style = MaterialTheme.typography.titleSmall)

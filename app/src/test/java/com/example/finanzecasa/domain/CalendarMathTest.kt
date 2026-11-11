@@ -125,4 +125,17 @@ class CalendarMathTest {
         val out = CalendarMath.scheduled(listOf(pausedSub), emptyList(), listOf(off, transfer), LocalDate.of(2026, 11, 10), LocalDate.of(2026, 11, 30))
         assertTrue(out.isEmpty())
     }
+
+    @Test
+    fun scheduledRecurringWithADurationStopsAfterTheRemainingOccurrences() {
+        val rata = RecurringEntity(
+            title = "Rate divano", amountCents = -10_000, cadence = Cadence.MONTHLY, anchorDay = 15,
+            nextDueEpochDay = LocalDate.of(2026, 11, 15).toEpochDay(), accountId = 1, remainingOccurrences = 3
+        )
+        val out = CalendarMath.scheduled(emptyList(), emptyList(), listOf(rata), LocalDate.of(2026, 11, 10), LocalDate.of(2027, 6, 30))
+        assertEquals(
+            listOf(LocalDate.of(2026, 11, 15), LocalDate.of(2026, 12, 15), LocalDate.of(2027, 1, 15)),
+            out.map { it.date }
+        )
+    }
 }

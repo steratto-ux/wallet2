@@ -108,11 +108,19 @@ class DueItemsProcessor(private val db: AppDatabase) {
     private suspend fun processRecurring(today: LocalDate) {
         for (r in dao.dueRecurring(today.toEpochDay())) {
             var next = LocalDate.ofEpochDay(r.nextDueEpochDay)
-            while (!next.isAfter(today)) {
+            var remaining = r.remainingOccurrences
+            // Con una durata, dopo l'ultima scadenza la ricorrente si ferma da sola
+            while (!next.isAfter(today) && remaining != RecurringSchedule.FINISHED) {
                 insertRecurringOccurrence(dao, r, next.atStartOfDay().toMillis())
+                remaining = RecurringSchedule.remainingAfter(remaining)
                 next = RecurringSchedule.following(next, r.cadence, r.anchorDay)
             }
-            dao.updateRecurring(r.copy(nextDueEpochDay = next.toEpochDay()))
+            dao.updateRecurring(
+                r.copy(
+                    nextDueEpochDay = next.toEpochDay(), remainingOccurrences = remaining,
+                    active = r.active && remaining != RecurringSchedule.FINISHED
+                )
+            )
         }
     }
 }

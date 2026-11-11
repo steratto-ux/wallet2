@@ -150,7 +150,9 @@ object ForecastMath {
                 val dates = generateSequence(LocalDate.ofEpochDay(r.nextDueEpochDay)) {
                     if (r.cadence == Cadence.WEEKLY) it.plusWeeks(1) else null
                 }.takeWhile { !it.isAfter(end) }.filter { !it.isBefore(today) }
-                dates.map { Upcoming(r.title, it, r.amountCents) }.toList()
+                // Con una durata si contano solo le scadenze che restano
+                dates.take(if (r.remainingOccurrences > 0) r.remainingOccurrences else Int.MAX_VALUE)
+                    .map { Upcoming(r.title, it, r.amountCents) }.toList()
             }
     }
 

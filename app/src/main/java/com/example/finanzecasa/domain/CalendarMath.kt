@@ -104,7 +104,7 @@ object CalendarMath {
                 .forEach { result += CalendarScheduled(l.name, it, -l.installmentCents, "Rata") }
         }
         for (r in recurring.filter { it.active && it.toAccountId == null }) {
-            occurrences(LocalDate.ofEpochDay(r.nextDueEpochDay), r.cadence, r.anchorDay, 400)
+            occurrences(LocalDate.ofEpochDay(r.nextDueEpochDay), r.cadence, r.anchorDay, if (r.remainingOccurrences > 0) r.remainingOccurrences else 400)
                 .forEach { result += CalendarScheduled(r.title, it, r.amountCents, "Ricorrente") }
         }
         return result.sortedBy { it.date }

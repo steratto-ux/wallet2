@@ -13,7 +13,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         RecurringEntity::class, GoalEntity::class,
         IrregularExpenseEntity::class, ProvisionUseEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -123,5 +123,12 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
     }
 }
 
+/** v6 -> v7: durata delle ricorrenti (0 = per sempre, quindi le esistenti non cambiano). Solo aggiunte. */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE recurring_transactions ADD COLUMN remainingOccurrences INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
 /** Tutte le migrazioni, in un posto solo: ogni nuova versione del database si aggiunge qui. */
-val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
+val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)

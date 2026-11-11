@@ -86,7 +86,13 @@ class ManageViewModel(application: Application) : AndroidViewModel(application) 
             val r = dao.recurringById(id) ?: return@withTransaction false
             insertRecurringOccurrence(dao, r, LocalDate.now().atStartOfDay().toMillis())
             val next = RecurringSchedule.following(LocalDate.ofEpochDay(r.nextDueEpochDay), r.cadence, r.anchorDay)
-            dao.updateRecurring(r.copy(nextDueEpochDay = next.toEpochDay()))
+            val remaining = RecurringSchedule.remainingAfter(r.remainingOccurrences)
+            dao.updateRecurring(
+                r.copy(
+                    nextDueEpochDay = next.toEpochDay(), remainingOccurrences = remaining,
+                    active = r.active && remaining != RecurringSchedule.FINISHED
+                )
+            )
             true
         }
         if (done) DueItemsProcessor(app.db).run(LocalDate.now()) // se c'erano altre scadenze già trascorse
@@ -194,12 +200,21 @@ class ManageViewModel(application: Application) : AndroidViewModel(application) 
         dao.categoryByName(name, parentId)?.id
             ?: dao.insertCategory(CategoryEntity(name = name, parentId = parentId, icon = icon))
 
-    /** Cambia nome, icona (icon == null = automatica) e, se indicato, il tipo per la regola 50/30/20. Restituisce un messaggio d'errore oppure null. */
-    suspend fun saveCategory(id: Long, name: String, icon: String?, bucket: Int? = null): String? {
+    /**
+     * Cambia nome, icona (icon == null = automatica), tipo per la regola 50/30/20 e categoria padre
+     * ([parentId] = null: categoria principale). Restituisce un messaggio d'errore oppure null.
+     */
+    suspend fun saveCategory(id: Long, name: String, icon: String?, bucket: Int? = null, parentId: Long? = null): String? {
         val old = dao.categoryById(id) ?: return "Categoria non trovata."
-        val clash = dao.categoryByName(name, old.parentId)
-        if (clash != null && clash.id != id) return "Esiste già una categoria con questo nome."
-        dao.updateCategory(old.copy(name = name, icon = icon, budgetBucket = bucket ?: old.budgetBucket))
+        if (parentId != null) {
+            if (parentId == id) return "Una categoria non può stare dentro se stessa."
+            val target = dao.categoryById(parentId) ?: return "Categoria padre non trovata."
+            if (target.parentId != null) return "Le sotto-categorie non possono avere altre sotto-categorie."
+            if (dao.hasChildren(id)) return "Questa categoria ha delle sotto-categorie: spostale prima di renderla una sotto-categoria."
+        }
+        val clash = dao.categoryByName(name, parentId)
+        if (clash != null && clash.id != id) return "Esiste già una categoria con questo nome in quel gruppo."
+        dao.updateCategory(old.copy(name = name, icon = icon, budgetBucket = bucket ?: old.budgetBucket, parentId = parentId))
         return null
     }
 

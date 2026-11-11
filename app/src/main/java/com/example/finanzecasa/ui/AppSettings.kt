@@ -94,6 +94,17 @@ class AppSettings(context: Context) {
         prefs.edit().putStringSet("emergency_accounts", ids.map { it.toString() }.toSet()).apply()
     }
 
+    // --- Analisi AI (v1.3): chiave API personale, modello e ultimo report. Restano solo sul telefono.
+    fun aiApiKey(): String = prefs.getString("ai_api_key", "") ?: ""
+    fun setAiApiKey(key: String) { prefs.edit().putString("ai_api_key", key.trim()).apply() }
+    fun aiModelId(): String? = prefs.getString("ai_model", null)
+    fun setAiModelId(id: String) { prefs.edit().putString("ai_model", id).apply() }
+    fun aiLastReport(): String = prefs.getString("ai_last_report", "") ?: ""
+    fun aiLastReportMillis(): Long = prefs.getLong("ai_last_report_at", 0L)
+    fun setAiLastReport(text: String, atMillis: Long) {
+        prefs.edit().putString("ai_last_report", text).putLong("ai_last_report_at", atMillis).apply()
+    }
+
     // --- Nome dell'utente, per il saluto nella schermata principale
     fun userName(): String = prefs.getString("user_name", "") ?: ""
     fun setUserName(name: String) { prefs.edit().putString("user_name", name.trim()).apply() }

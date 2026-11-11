@@ -28,7 +28,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import android.widget.Toast
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.finanzecasa.data.CategoryEntity
 import com.example.finanzecasa.domain.Bucket
@@ -39,6 +41,7 @@ import kotlinx.coroutines.launch
 fun CategoriesScreen(onBack: () -> Unit, vm: ManageViewModel = viewModel()) {
     val categories by vm.categories.collectAsState()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var showNew by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<CategoryEntity?>(null) }
     var deleting by remember { mutableStateOf<CategoryEntity?>(null) }
@@ -94,9 +97,14 @@ fun CategoriesScreen(onBack: () -> Unit, vm: ManageViewModel = viewModel()) {
     editing?.let { cat ->
         EditCategoryDialog(
             category = cat,
+            parents = parents.filter { it.id != cat.id },
+            hasChildren = childrenOf[cat.id].orEmpty().isNotEmpty(),
             onDismiss = { editing = null },
-            onSave = { newName, icon, bucket ->
-                scope.launch { vm.saveCategory(cat.id, newName, icon, bucket) }
+            onSave = { newName, icon, bucket, parentId ->
+                scope.launch {
+                    val message = vm.saveCategory(cat.id, newName, icon, bucket, parentId)
+                    if (message != null) Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                }
                 editing = null
             },
             onDelete = { deleting = cat; editing = null }
@@ -116,10 +124,13 @@ fun CategoriesScreen(onBack: () -> Unit, vm: ManageViewModel = viewModel()) {
 @Composable
 private fun EditCategoryDialog(
     category: CategoryEntity,
+    parents: List<CategoryEntity>,
+    hasChildren: Boolean,
     onDismiss: () -> Unit,
-    onSave: (name: String, icon: String?, bucket: Int?) -> Unit,
+    onSave: (name: String, icon: String?, bucket: Int?, parentId: Long?) -> Unit,
     onDelete: () -> Unit
 ) {
+    var parentId by remember { mutableStateOf(category.parentId) }
     var name by remember { mutableStateOf(category.name) }
     var icon by remember { mutableStateOf(category.icon) }
     var bucket by remember { mutableStateOf(category.budgetBucket) }
@@ -129,9 +140,23 @@ private fun EditCategoryDialog(
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nome") }, singleLine = true)
+                // Spostamento in un altro gruppo. Con delle sotto-categorie la categoria resta principale (si va su due livelli soli).
+                val none = "Nessuna (categoria principale)"
+                if (hasChildren) {
+                    Text(
+                        "Ha delle sotto-categorie, quindi resta una categoria principale.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    DropdownField(
+                        label = "Sotto-categoria di",
+                        value = parents.firstOrNull { it.id == parentId }?.name ?: none,
+                        entries = listOf(none to { parentId = null }) + parents.map { p -> p.name to { parentId = p.id } }
+                    )
+                }
                 Text("Icona", style = MaterialTheme.typography.labelLarge)
                 IconPicker(selected = icon, previewName = name, onSelect = { icon = it })
-                val isSub = category.parentId != null
+                val isSub = parentId != null
                 Text("Nella regola 50/30/20", style = MaterialTheme.typography.labelLarge)
                 SegmentedChoice(
                     options = listOf(
@@ -154,7 +179,7 @@ private fun EditCategoryDialog(
                 }
             }
         },
-        confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim(), icon, bucket) }) { Text("Salva") } },
+        confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim(), icon, bucket, parentId) }) { Text("Salva") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Annulla") } }
     )
 }
