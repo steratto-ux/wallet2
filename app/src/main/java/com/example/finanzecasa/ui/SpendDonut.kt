@@ -48,9 +48,9 @@ private const val MAX_SLICES = 5
 /** Una fetta della ciambella: le categorie oltre le prime cinque confluiscono in "Altre". */
 internal data class Slice(val name: String, val cents: Long, val color: Color, val categoryId: Long? = null)
 
-internal fun buildSlices(spend: List<CategorySpend>): List<Slice> {
+internal fun buildSlices(spend: List<CategorySpend>, palette: List<Color> = donutColors): List<Slice> {
     val sorted = spend.filter { it.totalCents > 0 }.sortedByDescending { it.totalCents }
-    val top = sorted.take(MAX_SLICES).mapIndexed { i, s -> Slice(s.name, s.totalCents, donutColors[i], s.categoryId) }
+    val top = sorted.take(MAX_SLICES).mapIndexed { i, s -> Slice(s.name, s.totalCents, palette[i % palette.size], s.categoryId) }
     val rest = sorted.drop(MAX_SLICES).sumOf { it.totalCents }
     return if (rest > 0) top + Slice("Altre", rest, otherColor) else top
 }
@@ -66,7 +66,7 @@ fun SpendDonutCard(
     modifier: Modifier = Modifier,
     onCategoryClick: ((categoryId: Long, name: String) -> Unit)? = null
 ) {
-    val slices = buildSlices(spend)
+    val slices = buildSlices(spend, LocalAppStyle.current.chart)
     val total = slices.sumOf { it.cents }
     val canGoForward = month.isBefore(YearMonth.now())
 

@@ -45,6 +45,38 @@ import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material.icons.outlined.Work
+import androidx.compose.material.icons.outlined.Fastfood
+import androidx.compose.material.icons.outlined.LocalPizza
+import androidx.compose.material.icons.outlined.Cake
+import androidx.compose.material.icons.outlined.LocalBar
+import androidx.compose.material.icons.outlined.LocalLaundryService
+import androidx.compose.material.icons.outlined.CleaningServices
+import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.Chair
+import androidx.compose.material.icons.outlined.Kitchen
+import androidx.compose.material.icons.outlined.Park
+import androidx.compose.material.icons.outlined.LocalFlorist
+import androidx.compose.material.icons.outlined.TwoWheeler
+import androidx.compose.material.icons.outlined.Train
+import androidx.compose.material.icons.outlined.LocalTaxi
+import androidx.compose.material.icons.outlined.LocalParking
+import androidx.compose.material.icons.outlined.Hotel
+import androidx.compose.material.icons.outlined.LocalPharmacy
+import androidx.compose.material.icons.outlined.LocalHospital
+import androidx.compose.material.icons.outlined.Spa
+import androidx.compose.material.icons.outlined.Tv
+import androidx.compose.material.icons.outlined.Headphones
+import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.Brush
+import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Toys
+import androidx.compose.material.icons.outlined.Celebration
+import androidx.compose.material.icons.outlined.Pool
+import androidx.compose.material.icons.outlined.SportsSoccer
+import androidx.compose.material.icons.outlined.VolunteerActivism
+import androidx.compose.material.icons.outlined.Watch
+import androidx.compose.material.icons.outlined.Gavel
+import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -99,11 +131,46 @@ object CategoryIcons {
             "computer" to Icons.Outlined.Computer,
             "money" to Icons.Outlined.Paid,
             "category" to Icons.Outlined.Category,
-            "transfer" to Icons.Outlined.SwapHoriz
+            "transfer" to Icons.Outlined.SwapHoriz,
+            "fastfood" to Icons.Outlined.Fastfood,
+            "pizza" to Icons.Outlined.LocalPizza,
+            "cake" to Icons.Outlined.Cake,
+            "bar" to Icons.Outlined.LocalBar,
+            "laundry" to Icons.Outlined.LocalLaundryService,
+            "cleaning" to Icons.Outlined.CleaningServices,
+            "repairs" to Icons.Outlined.Build,
+            "furniture" to Icons.Outlined.Chair,
+            "kitchen" to Icons.Outlined.Kitchen,
+            "garden" to Icons.Outlined.Park,
+            "flowers" to Icons.Outlined.LocalFlorist,
+            "bike" to Icons.Outlined.TwoWheeler,
+            "train" to Icons.Outlined.Train,
+            "taxi" to Icons.Outlined.LocalTaxi,
+            "parking" to Icons.Outlined.LocalParking,
+            "hotel" to Icons.Outlined.Hotel,
+            "pharmacy" to Icons.Outlined.LocalPharmacy,
+            "hospital" to Icons.Outlined.LocalHospital,
+            "wellness" to Icons.Outlined.Spa,
+            "tv" to Icons.Outlined.Tv,
+            "headphones" to Icons.Outlined.Headphones,
+            "photo" to Icons.Outlined.PhotoCamera,
+            "art" to Icons.Outlined.Brush,
+            "books" to Icons.Outlined.MenuBook,
+            "toys" to Icons.Outlined.Toys,
+            "party" to Icons.Outlined.Celebration,
+            "pool" to Icons.Outlined.Pool,
+            "soccer" to Icons.Outlined.SportsSoccer,
+            "charity" to Icons.Outlined.VolunteerActivism,
+            "accessories" to Icons.Outlined.Watch,
+            "legal" to Icons.Outlined.Gavel,
+            "wifi" to Icons.Outlined.Wifi
         )
     }
 
-    /** Icone che l'utente può scegliere (tutte tranne quella riservata ai trasferimenti). */
+    /**
+     * Icone che l'utente può scegliere (tutte tranne quella riservata ai trasferimenti). Le chiavi
+     * già esistenti non cambiano mai: le categorie salvate continuano a mostrare la stessa icona.
+     */
     val selectable: List<String> by lazy { catalog.keys.filter { it != "transfer" } }
 
     fun get(key: String): ImageVector = catalog[key] ?: catalog.getValue(IconRules.DEFAULT)

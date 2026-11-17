@@ -392,10 +392,10 @@ private fun DayCell(
             // Il + sul giorno selezionato: aggiunge una transazione con quella data
             Box(
                 Modifier.align(Alignment.TopEnd).size(22.dp).clip(CircleShape)
-                    .background(scheme.tertiary).clickable(onClick = onAdd),
+                    .background(scheme.onPrimary).clickable(onClick = onAdd),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Outlined.Add, contentDescription = "Aggiungi transazione", tint = scheme.onTertiary, modifier = Modifier.size(16.dp))
+                Icon(Icons.Outlined.Add, contentDescription = "Aggiungi transazione", tint = scheme.primary, modifier = Modifier.size(16.dp))
             }
         }
     }

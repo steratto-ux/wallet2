@@ -9,77 +9,68 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.finanzecasa.data.AccountType
+import com.example.finanzecasa.domain.PaletteColors
+import com.example.finanzecasa.domain.ThemePalettes
+import com.example.finanzecasa.domain.ThemeSpec
+import com.example.finanzecasa.domain.ThemeStyle
 
-// Palette fresca ma non aggressiva: verde acqua come colore principale, rosso corallo per le uscite.
-private val LightColors = lightColorScheme(
-    primary = Color(0xFF1E9E7C),
-    onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFD3F1E6),
-    onPrimaryContainer = Color(0xFF0B3D2E),
-    secondary = Color(0xFF5B7A8C),
-    onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFE0ECF3),
-    onSecondaryContainer = Color(0xFF1D3441),
-    tertiary = Color(0xFFD98A3D),
-    onTertiary = Color(0xFFFFFFFF),
-    background = Color(0xFFF2F6F4),
-    onBackground = Color(0xFF16201D),
-    surface = Color(0xFFF2F6F4),
-    onSurface = Color(0xFF16201D),
-    surfaceVariant = Color(0xFFE3ECE8),
-    onSurfaceVariant = Color(0xFF5C6B66),
-    surfaceTint = Color(0xFF1E9E7C),
-    outline = Color(0xFF9DB0A8),
-    outlineVariant = Color(0xFFDAE5E0),
-    error = Color(0xFFD6493D),
-    onError = Color(0xFFFFFFFF),
-    errorContainer = Color(0xFFFBDDD9),
-    onErrorContainer = Color(0xFF5A1A14),
-    surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFF8FBFA),
-    surfaceContainer = Color(0xFFEAF2EE),
-    surfaceContainerHigh = Color(0xFFE3EDE9),
-    surfaceContainerHighest = Color(0xFFDCE7E2)
+/** Schema colori di Material per un tema in una modalità. I colori veri stanno in [ThemePalettes]. */
+private fun PaletteColors.toScheme(dark: Boolean): ColorScheme {
+    val base = if (dark) darkColorScheme() else lightColorScheme()
+    return base.copy(
+        primary = Color(primary), onPrimary = Color(onPrimary),
+        primaryContainer = Color(primaryContainer), onPrimaryContainer = Color(onPrimaryContainer),
+        secondary = Color(secondary), onSecondary = Color(onSecondary),
+        secondaryContainer = Color(secondaryContainer), onSecondaryContainer = Color(onSecondaryContainer),
+        tertiary = Color(tertiary), onTertiary = Color(onTertiary),
+        background = Color(background), onBackground = Color(onBackground),
+        surface = Color(background), onSurface = Color(onBackground),
+        surfaceVariant = Color(surfaceVariant), onSurfaceVariant = Color(onSurfaceVariant),
+        surfaceTint = Color(primary),
+        outline = Color(outline), outlineVariant = Color(outlineVariant),
+        error = Color(error), onError = Color(onError),
+        errorContainer = Color(errorContainer), onErrorContainer = Color(onErrorContainer),
+        surfaceContainerLowest = Color(containerLowest), surfaceContainerLow = Color(containerLow),
+        surfaceContainer = Color(container), surfaceContainerHigh = Color(containerHigh),
+        surfaceContainerHighest = Color(containerHighest)
+    )
+}
+
+/** Dettagli grafici del tema che Material non prevede: bordi di box e pulsanti, accento, colori dei grafici. */
+@Immutable
+class AppStyle(
+    val cardBorder: Color,
+    val cardBorderWidth: Dp,
+    val navBorder: Color,
+    val navBorderWidth: Dp,
+    val accent: Color,
+    val income: Color,
+    val chart: List<Color>
 )
 
-private val DarkColors = darkColorScheme(
-    primary = Color(0xFF4FD1A8),
-    onPrimary = Color(0xFF00382A),
-    primaryContainer = Color(0xFF1B4A3C),
-    onPrimaryContainer = Color(0xFFBDF2E0),
-    secondary = Color(0xFF9CC0D4),
-    onSecondary = Color(0xFF12303F),
-    secondaryContainer = Color(0xFF2A4455),
-    onSecondaryContainer = Color(0xFFD3E8F4),
-    tertiary = Color(0xFFF0B070),
-    onTertiary = Color(0xFF3A2108),
-    background = Color(0xFF101514),
-    onBackground = Color(0xFFE3EAE7),
-    surface = Color(0xFF101514),
-    onSurface = Color(0xFFE3EAE7),
-    surfaceVariant = Color(0xFF2A3431),
-    onSurfaceVariant = Color(0xFFA5B5AF),
-    surfaceTint = Color(0xFF4FD1A8),
-    outline = Color(0xFF5E716A),
-    outlineVariant = Color(0xFF2B3935),
-    error = Color(0xFFFF8A7D),
-    onError = Color(0xFF4A150F),
-    errorContainer = Color(0xFF5A2A24),
-    onErrorContainer = Color(0xFFFFDAD5),
-    surfaceContainerLowest = Color(0xFF171D1B),
-    surfaceContainerLow = Color(0xFF1A2120),
-    surfaceContainer = Color(0xFF1F2725),
-    surfaceContainerHigh = Color(0xFF263230),
-    surfaceContainerHighest = Color(0xFF2C3A37)
-)
+private fun ThemeSpec.appStyle(dark: Boolean): AppStyle {
+    val c = colors(dark)
+    return AppStyle(
+        cardBorder = Color(c.cardBorder), cardBorderWidth = cardBorderDp.dp,
+        navBorder = Color(c.navBorder), navBorderWidth = navBorderDp.dp,
+        accent = Color(c.accent), income = Color(c.income),
+        chart = c.chart.map { Color(it) }
+    )
+}
+
+/** Stile del tema in uso (bordi, accento, colori dei grafici). */
+val LocalAppStyle = staticCompositionLocalOf { ThemePalettes.spec(ThemePalettes.DEFAULT).appStyle(false) }
 
 private val Base = Typography()
 
@@ -95,13 +86,11 @@ private val AppTypography = Typography(
     bodySmall = Base.bodySmall
 )
 
-private val AppShapes = Shapes(
-    extraSmall = RoundedCornerShape(6.dp),
-    small = RoundedCornerShape(10.dp),
-    medium = RoundedCornerShape(14.dp),
-    large = RoundedCornerShape(18.dp),
-    extraLarge = RoundedCornerShape(24.dp)
-)
+/** Gli angoli seguono il raggio del tema: netti per Minimal e Ferrari, molto morbidi per Indaco. */
+private fun shapesFor(radiusDp: Int): Shapes {
+    fun r(f: Float) = RoundedCornerShape(maxOf(2f, radiusDp * f).dp)
+    return Shapes(extraSmall = r(0.35f), small = r(0.55f), medium = r(0.8f), large = r(1f), extraLarge = r(1.35f))
+}
 
 /** Scelta del tema: segue il telefono, oppure sempre chiaro o sempre scuro. */
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
@@ -110,25 +99,32 @@ enum class ThemeMode { SYSTEM, LIGHT, DARK }
 val LocalDarkTheme = staticCompositionLocalOf { false }
 
 @Composable
-fun AppTheme(mode: ThemeMode = ThemeMode.SYSTEM, content: @Composable () -> Unit) {
+fun AppTheme(
+    mode: ThemeMode = ThemeMode.SYSTEM,
+    style: ThemeStyle = ThemePalettes.DEFAULT,
+    content: @Composable () -> Unit
+) {
     val dark = when (mode) {
         ThemeMode.SYSTEM -> isSystemInDarkTheme()
         ThemeMode.LIGHT -> false
         ThemeMode.DARK -> true
     }
-    CompositionLocalProvider(LocalDarkTheme provides dark) {
+    val spec = ThemePalettes.spec(style)
+    val scheme = remember(style, dark) { spec.colors(dark).toScheme(dark) }
+    val appStyle = remember(style, dark) { spec.appStyle(dark) }
+    CompositionLocalProvider(LocalDarkTheme provides dark, LocalAppStyle provides appStyle) {
         MaterialTheme(
-            colorScheme = if (dark) DarkColors else LightColors,
+            colorScheme = scheme,
             typography = AppTypography,
-            shapes = AppShapes,
+            shapes = remember(style) { shapesFor(spec.radiusDp) },
             content = content
         )
     }
 }
 
-/** Verde per le entrate (le uscite usano il colore "error", un rosso corallo). */
+/** Verde per le entrate (le uscite usano il colore "error"). Dipende dal tema. */
 val ColorScheme.income: Color
-    @Composable get() = if (LocalDarkTheme.current) Color(0xFF5FD39B) else Color(0xFF1E9E6A)
+    @Composable get() = LocalAppStyle.current.income
 
 /** Tinta tenue dell'icona di un account in base al tipo. */
 fun accountTint(type: AccountType, dark: Boolean): Color = when (type) {

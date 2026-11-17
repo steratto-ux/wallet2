@@ -67,6 +67,7 @@ import com.example.finanzecasa.ui.SettingsScreen
 import com.example.finanzecasa.ui.SubscriptionFormScreen
 import com.example.finanzecasa.ui.SubscriptionsScreen
 import com.example.finanzecasa.ui.ThemeMode
+import com.example.finanzecasa.domain.ThemeStyle
 import com.example.finanzecasa.ui.TransactionsScreen
 import com.example.finanzecasa.widget.WalletWidgetProvider
 import kotlinx.coroutines.Dispatchers
@@ -92,12 +93,15 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             var themeMode by remember { mutableStateOf(settings.themeMode()) }
-            AppTheme(themeMode) {
+            var themeStyle by remember { mutableStateOf(settings.themeStyle()) }
+            AppTheme(themeMode, themeStyle) {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     Box(Modifier.fillMaxSize()) {
                         AppRoot(
                             themeMode = themeMode,
                             onThemeChange = { mode -> themeMode = mode; settings.setThemeMode(mode) },
+                            themeStyle = themeStyle,
+                            onThemeStyleChange = { style -> themeStyle = style; settings.setThemeStyle(style) },
                             openRequest = openRequest.value,
                             onOpenHandled = { openRequest.value = null }
                         )
@@ -185,6 +189,8 @@ private fun LockScreen(onUnlock: () -> Unit) {
 private fun AppRoot(
     themeMode: ThemeMode,
     onThemeChange: (ThemeMode) -> Unit,
+    themeStyle: ThemeStyle,
+    onThemeStyleChange: (ThemeStyle) -> Unit,
     openRequest: String?,
     onOpenHandled: () -> Unit
 ) {
@@ -252,6 +258,8 @@ private fun AppRoot(
         "settings" -> SettingsScreen(
             themeMode = themeMode,
             onThemeChange = onThemeChange,
+            themeStyle = themeStyle,
+            onThemeStyleChange = onThemeStyleChange,
             onOpenAccountsOrder = { route = "accountsOrder" },
             onOpenGuide = { route = "guide" },
             onBack = back

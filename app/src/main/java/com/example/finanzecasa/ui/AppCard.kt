@@ -34,7 +34,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Riquadro piatto: sfondo chiaro, bordo sottile, nessuna ombra.
+ * Riquadro piatto: sfondo chiaro, bordo (colore e spessore dipendono dal tema), nessuna ombra.
  * Se [onClick] è presente tutto il riquadro è toccabile.
  */
 @Composable
@@ -42,7 +42,7 @@ fun AppCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainerLowest,
-    borderColor: Color = MaterialTheme.colorScheme.outlineVariant,
+    borderColor: Color = LocalAppStyle.current.cardBorder,
     padding: Dp = 16.dp,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -51,7 +51,7 @@ fun AppCard(
         modifier = modifier,
         shape = shape,
         colors = CardDefaults.cardColors(containerColor = containerColor),
-        border = BorderStroke(1.dp, borderColor),
+        border = BorderStroke(LocalAppStyle.current.cardBorderWidth, borderColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         val inner = Modifier.fillMaxWidth().let { if (onClick != null) it.clip(shape).clickable(onClick = onClick) else it }
@@ -62,9 +62,12 @@ fun AppCard(
 /** Pulsante quadrato con sola icona, per i collegamenti rapidi della schermata principale. */
 @Composable
 fun NavIconButton(icon: ImageVector, description: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val shape = MaterialTheme.shapes.large
+    val style = LocalAppStyle.current
     Box(
-        modifier.clip(MaterialTheme.shapes.large)
-            .background(MaterialTheme.colorScheme.primaryContainer)
+        modifier.clip(shape)
+            .background(MaterialTheme.colorScheme.primaryContainer, shape)
+            .border(style.navBorderWidth, style.navBorder, shape)
             .clickable(onClick = onClick)
             .padding(vertical = 14.dp),
         contentAlignment = Alignment.Center
@@ -82,9 +85,12 @@ fun NavIconButton(icon: ImageVector, description: String, onClick: () -> Unit, m
  */
 @Composable
 fun NavFullButton(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val shape = MaterialTheme.shapes.large
+    val style = LocalAppStyle.current
     Row(
-        modifier.clip(MaterialTheme.shapes.large)
-            .background(MaterialTheme.colorScheme.primaryContainer)
+        modifier.clip(shape)
+            .background(MaterialTheme.colorScheme.primaryContainer, shape)
+            .border(style.navBorderWidth, style.navBorder, shape)
             .clickable(onClick = onClick)
             .padding(vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -103,7 +109,7 @@ fun NavFullButton(icon: ImageVector, label: String, onClick: () -> Unit, modifie
 }
 
 /**
- * Pulsante a tutta larghezza (4 x 1): stesso sfondo dei pulsanti rapidi, bordo dorato, icona a sinistra
+ * Pulsante a tutta larghezza (4 x 1): stesso sfondo dei pulsanti rapidi, bordo con il colore d'accento del tema, icona a sinistra
  * e testo su una riga a destra dell'icona.
  */
 @Composable
@@ -112,7 +118,7 @@ fun NavWideButton(icon: ImageVector, label: String, onClick: () -> Unit, modifie
     Row(
         modifier.clip(shape)
             .background(MaterialTheme.colorScheme.primaryContainer, shape)
-            .border(2.dp, Color(0xFFD4AF37), shape)
+            .border(2.dp, LocalAppStyle.current.accent, shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 18.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,

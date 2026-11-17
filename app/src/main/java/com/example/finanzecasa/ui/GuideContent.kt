@@ -131,7 +131,7 @@ val guideSections: List<GuideSection> = listOf(
                     "(Affitto, Bollette, Manutenzione). Nei report e nei budget scegliere la principale comprende anche le sue sotto-categorie."
             ),
             bullets(
-                "Icona: scelta automatica dal nome, oppure la scegli tu.",
+                "Icona: scelta automatica dal nome, oppure la scegli tu tra oltre 60 icone (cibo, casa, trasporti, salute, tempo libero, regali e altro).",
                 "Spostare una categoria: tocca la categoria e cambia Sotto-categoria di. Così sposti una sotto-categoria in un altro gruppo, oppure la rendi una categoria principale scegliendo Nessuna. Le transazioni collegate la seguono. Una categoria che ha sotto-categorie resta principale (si va su due livelli soli).",
                 "Nella regola 50/30/20: per ogni categoria, principale o sotto-categoria, puoi decidere se è una Necessità o un Desiderio. Con Auto la decide l'app dal nome (affitto, bollette, spesa, trasporti, salute sono necessità); per una sotto-categoria Come principale significa che segue la categoria principale."
             ),
@@ -429,7 +429,7 @@ val guideSections: List<GuideSection> = listOf(
         listOf(
             bullets(
                 "Il tuo nome: appare nel saluto.",
-                "Tema: automatico (segue il telefono), chiaro o scuro.",
+                "Tema: automatico (segue il telefono), chiaro o scuro. Sotto, \"Colori\" offre cinque temi (Smeraldo, Indaco e corallo, Rosso Ferrari, Minimal B/N, Ardesia e corallo), ciascuno con la versione chiara e quella scura, con bordi e angoli propri. Toccane uno per applicarlo subito.",
                 "Includi i debiti dei prestiti: toglie dal patrimonio netto il capitale ancora da restituire.",
                 "Notifiche: avvisi per i budget all'80% e al 100% e il giorno prima di scadenze e addebiti della carta.",
                 "Spese sopra la media: una notifica quando in una categoria hai già speso più di una volta e mezza la tua media mensile (almeno 30 € di media e 25 € di differenza), una sola volta al mese per categoria.",

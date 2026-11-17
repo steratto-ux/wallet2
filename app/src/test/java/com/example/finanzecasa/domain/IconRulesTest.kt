@@ -31,4 +31,32 @@ class IconRulesTest {
         assertEquals(IconRules.DEFAULT, IconRules.resolve(null, "Varie", null, "Altro"))
         assertEquals(IconRules.DEFAULT, IconRules.resolve(null, null, null, null))
     }
+
+    @Test fun `nuove icone della versione 1_4 si deducono dal nome`() {
+        assertEquals("laundry", IconRules.guess("Lavanderia"))
+        assertEquals("bike", IconRules.guess("Bici e monopattino"))
+        assertEquals("soccer", IconRules.guess("Tennis e padel"))
+        assertEquals("legal", IconRules.guess("Multe"))
+        assertEquals("party", IconRules.guess("Feste"))
+        assertEquals("cake", IconRules.guess("Dolci"))
+        assertEquals("kitchen", IconRules.guess("Elettrodomestici"))
+    }
+
+    @Test fun `le regole esistenti non cambiano con le nuove icone`() {
+        assertEquals("restaurant", IconRules.guess("Pizza"))
+        assertEquals("medical", IconRules.guess("Farmacia"))
+        assertEquals("bus", IconRules.guess("Taxi"))
+        assertEquals("car", IconRules.guess("Parcheggio"))
+        assertEquals("beach", IconRules.guess("Hotel"))
+        assertEquals("phone", IconRules.guess("Internet"))
+        assertEquals("school", IconRules.guess("Libri"))
+        assertNull(IconRules.guess("Mobilità"))
+        assertNull(IconRules.guess("Fastweb"))
+        assertNull(IconRules.guess("Offerte"))
+    }
+
+    @Test fun `le chiavi delle regole non si ripetono`() {
+        val keys = IconRules.iconKeys()
+        assertEquals(keys.size, keys.toSet().size)
+    }
 }

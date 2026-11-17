@@ -18,6 +18,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import com.example.finanzecasa.domain.ThemeStyle
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -138,6 +139,8 @@ private fun SwitchRow(title: String, subtitle: String, checked: Boolean, onChang
 fun SettingsScreen(
     themeMode: ThemeMode,
     onThemeChange: (ThemeMode) -> Unit,
+    themeStyle: ThemeStyle,
+    onThemeStyleChange: (ThemeStyle) -> Unit,
     onOpenAccountsOrder: () -> Unit,
     onOpenGuide: () -> Unit,
     onBack: () -> Unit,
@@ -222,6 +225,13 @@ fun SettingsScreen(
             )
             Text(
                 "Automatico segue l'impostazione del telefono.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text("Colori", style = MaterialTheme.typography.titleSmall)
+            ThemePicker(selected = themeStyle, onSelect = onThemeStyleChange)
+            Text(
+                "Ogni tema ha la versione chiara e quella scura, con bordi e angoli propri. Il cambio è immediato.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

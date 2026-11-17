@@ -38,8 +38,43 @@ object IconRules {
         "receipt" to listOf("tasse", "imposte", "tributi", "bollo", "irpef", "fiscal"),
         "bank" to listOf("banca", "bancari", "commission", "interessi", "conto"),
         "shopping" to listOf("shopping", "acquisti", "negozi"),
-        "computer" to listOf("elettronic", "informat", "computer", "tecnolog")
+        "computer" to listOf("elettronic", "informat", "computer", "tecnolog"),
+        // Aggiunte v1.4: parole che non si sovrappongono a quelle sopra, così le icone già assegnate non cambiano
+        "fastfood" to listOf("panin", "kebab", "hamburg", "fastfood"),
+        "cake" to listOf("dolc", "pasticc", "tort", "compleann", "gelat"),
+        "bar" to listOf("birr", "vino", "vini", "alcol", "cocktail"),
+        "laundry" to listOf("lavanderi", "bucato", "lavatric", "tintori"),
+        "cleaning" to listOf("pulizi", "detersiv", "colf"),
+        "repairs" to listOf("riparaz", "manutenz", "officin", "tagliand", "bricol", "ferrament", "meccanic"),
+        "furniture" to listOf("mobiliar", "divan", "arredam", "ikea"),
+        "kitchen" to listOf("elettrodomest", "cucina", "stoviglie"),
+        "garden" to listOf("giardin", "ortagg", "pergol"),
+        "flowers" to listOf("fior", "piant"),
+        "bike" to listOf("bici", "bicic", "monopattin", "scooter", "moto"),
+        "train" to listOf("ferrov", "trenit", "italo", "pendolar"),
+        "taxi" to listOf("uber", "navetta"),
+        "parking" to listOf("garage", "sosta"),
+        "hotel" to listOf("alberg", "bnb", "airbnb", "pernottam"),
+        "pharmacy" to listOf("parafarmac", "integrator"),
+        "hospital" to listOf("ricover", "clinic"),
+        "wellness" to listOf("massagg", "yoga", "meditaz", "terme", "relax", "sauna"),
+        "tv" to listOf("televis", "tv", "dazn", "decoder"),
+        "headphones" to listOf("cuffi", "auricolar", "podcast", "audiolibr"),
+        "photo" to listOf("foto", "fotograf"),
+        "art" to listOf("arte", "pittur", "creativ", "disegn", "cancelleri"),
+        "books" to listOf("bibliot", "romanz", "lettur", "fumett", "giornal", "riviste", "edicol"),
+        "toys" to listOf("giocatt", "lego", "puzzle"),
+        "party" to listOf("fest", "party", "evento", "eventi", "discotec", "serata"),
+        "pool" to listOf("piscin", "nuoto"),
+        "soccer" to listOf("stadio", "tennis", "padel", "basket", "pallavol", "calcio", "calcett"),
+        "charity" to listOf("volontar", "onlus", "caritas"),
+        "accessories" to listOf("orolog", "gioiell", "accessor", "occhial"),
+        "legal" to listOf("avvocat", "legal", "notai", "notar", "tribunal", "multa", "multe", "sanzion"),
+        "wifi" to listOf("router", "adsl", "hosting")
     )
+
+    /** Chiavi delle icone che hanno almeno una parola chiave (serve ai test). */
+    fun iconKeys(): List<String> = rules.map { it.first }
 
     /** Icona suggerita dal solo nome, oppure null se nessuna parola chiave corrisponde. */
     fun guess(name: String?): String? {

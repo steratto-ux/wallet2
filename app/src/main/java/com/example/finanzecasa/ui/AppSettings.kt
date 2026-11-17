@@ -2,6 +2,8 @@ package com.example.finanzecasa.ui
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.example.finanzecasa.domain.ThemePalettes
+import com.example.finanzecasa.domain.ThemeStyle
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -19,6 +21,15 @@ class AppSettings(context: Context) {
 
     fun setThemeMode(mode: ThemeMode) {
         prefs.edit().putString("theme", mode.name).apply()
+    }
+
+    /** Tema di colore (v1.4). Se il valore salvato non esiste più si torna al tema predefinito. */
+    fun themeStyle(): ThemeStyle =
+        runCatching { ThemeStyle.valueOf(prefs.getString("theme_style", ThemePalettes.DEFAULT.name) ?: "") }
+            .getOrDefault(ThemePalettes.DEFAULT)
+
+    fun setThemeStyle(style: ThemeStyle) {
+        prefs.edit().putString("theme_style", style.name).apply()
     }
 
     // --- Patrimonio netto
