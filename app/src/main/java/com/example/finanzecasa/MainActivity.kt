@@ -204,6 +204,7 @@ private fun AppRoot(
     LaunchedEffect(openRequest) {
         if (openRequest == WalletWidgetProvider.OPEN_NEW_TRANSACTION) { newTxDay = null; returnTo = "home"; route = "newTransaction" }
         if (openRequest == WalletWidgetProvider.OPEN_ANALYSIS) route = "analysis"
+        if (openRequest == WalletWidgetProvider.OPEN_CALENDAR) { calendarVm.reset(); route = "calendar" }
         if (openRequest != null) onOpenHandled()
     }
 

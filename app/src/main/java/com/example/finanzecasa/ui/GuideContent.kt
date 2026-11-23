@@ -253,7 +253,22 @@ val guideSections: List<GuideSection> = listOf(
                 "Entrate, Spese e Risparmio del periodo, con la variazione percentuale rispetto al periodo prima.",
                 "Spese in crescita: le categorie in cui spendi più del periodo precedente.",
                 "Spese per categoria: importo, quota sul totale e variazione di ogni categoria. Toccando una categoria vedi le sotto-categorie.",
-                "Entrate per categoria."
+                "Entrate per categoria.",
+                "Andamento entrate e uscite: il grafico mese per mese (vedi sotto).",
+                "Riepilogo dell'anno in PDF: in fondo alla schermata, il tasto crea un documento da salvare o inviare (vedi sotto)."
+            ),
+            par(
+                "Riepilogo dell'anno in PDF. In fondo ai Report il tasto \"Crea il PDF\" prepara un documento A4 sull'anno che stai guardando: " +
+                    "entrate, spese e risparmio con il confronto con l'anno prima, il tasso di risparmio, il mese migliore e quello peggiore, il grafico e la tabella dei 12 mesi, " +
+                    "e le spese e le entrate per categoria con quota e variazione. Scegli dove salvarlo (anche su Drive o via e-mail dal selettore di Android). " +
+                    "Per l'anno in corso i dati arrivano fino a oggi e il confronto è sugli stessi giorni dell'anno prima. Il PDF viene creato sul telefono: nulla viene inviato in rete."
+            ),
+            par(
+                "Andamento entrate e uscite. Subito sotto il riepilogo c'è un grafico con le entrate (verde) e le uscite (rosso) di ogni mese. " +
+                    "Scegli la durata: 3, 6 o 12 mesi (gli ultimi, che finiscono nel mese in corso) oppure Anno (da gennaio a dicembre; i mesi che devono ancora arrivare restano vuoti). " +
+                    "Le frecce ai lati del periodo vanno indietro e avanti nel tempo della stessa durata: con Anno scorri un anno alla volta, con 3 mesi un trimestre alla volta. " +
+                    "Il tasto Linee/Barre cambia il disegno: le linee sono curve continue che mostrano subito se entrate e uscite salgono o scendono, le barre mettono a confronto i due importi di ogni mese. " +
+                    "Tocca o trascina il dito sul grafico per leggere entrate, uscite e saldo di un mese preciso; sopra il grafico compaiono i totali del periodo. Il mese in corso è parziale."
             ),
             par(
                 "Periodo in corso: il confronto è fatto sugli stessi giorni. Quando il mese non è finito, i giorni trascorsi vengono confrontati con gli stessi giorni del mese prima; " +
@@ -271,14 +286,25 @@ val guideSections: List<GuideSection> = listOf(
         listOf(
             par(
                 "L'analisi lavora sui dati che hai già inserito, negli ultimi mesi, e non ti chiede nulla in più. Più mesi registri, più diventa precisa. " +
-                    "Contiene cinque strumenti, dall'alto verso il basso:"
+                    "Contiene gli strumenti seguenti, dall'alto verso il basso:"
             ),
             bullets(
                 "Previsione di fine mese: quanto avrai sui conti l'ultimo giorno.",
+                "Previsione di fine anno: dove arrivi a dicembre tra entrate, spese e risparmio, e quanto puoi spendere al mese per raggiungere il tuo obiettivo.",
                 "Regola 50/30/20: quanto del tuo reddito va in necessità, desideri e risparmio.",
                 "Spese fisse e variabili: quanto è inevitabile e quanto dipende da te.",
                 "E se risparmiassi di più?: un simulatore con il tuo obiettivo di risparmio.",
                 "Piccole spese che si ripetono: i caffè e gli acquisti piccoli che sommati pesano."
+            ),
+            par(
+                "Previsione di fine anno. Per i mesi che mancano a dicembre l'app usa la media degli ultimi mesi chiusi (fino a sei, solo quelli con movimenti); " +
+                    "il mese in corso vale almeno quanto hai già registrato. Sommando a quello che hai già avuto da gennaio, ottieni le entrate, le spese e il risparmio previsti per l'anno. " +
+                    "Se nel simulatore hai impostato un obiettivo di risparmio mensile, lo confronta con 12 volte quella cifra: ti dice di quanto lo supererai o quanto ti mancherà " +
+                    "e quanto puoi spendere in media ogni mese, da qui a dicembre, per centrarlo. È una stima semplice: le spese annuali (assicurazione, tasse) e le entrate straordinarie la spostano."
+            ),
+            example(
+                "Fino a ottobre hai incassato 2.000 € e speso 1.500 € al mese, e l'obiettivo è 400 € al mese (4.800 € l'anno). L'app prevede 24.000 € di entrate e 18.000 € di spese: " +
+                    "risparmio 6.000 €, cioè 1.200 € oltre l'obiettivo. Per centrarlo puoi spendere fino a 2.100 € al mese in novembre e dicembre."
             ),
             par(
                 "In cima alla schermata c'è il pulsante Analisi AI: quando lo tocchi, un'intelligenza artificiale legge un riepilogo dei tuoi dati " +
@@ -415,11 +441,12 @@ val guideSections: List<GuideSection> = listOf(
     GuideSection(
         "Il widget",
         listOf(
-            par("Il widget è un solo pulsante, grande 2 x 1, da mettere sulla schermata del telefono: serve a inserire una transazione in un attimo."),
+            par("Il widget è un pulsante, grande 2 x 1, da mettere sulla schermata del telefono: serve a inserire una transazione in un attimo. Se vuoi, può mostrare anche le prossime scadenze."),
             bullets(
                 "Aggiungerlo: tieni premuto sulla schermata del telefono, scegli Widget, cerca Il mio wallet e trascinalo dove vuoi.",
                 "Usarlo: toccando + Nuova transazione si apre l'app direttamente sul modulo di inserimento, con la tastiera pronta per l'importo.",
-                "Riservatezza: non mostra saldi né importi, quindi non c'è nulla da nascondere. Se è attivo il blocco dell'app, prima dell'inserimento viene chiesto lo sblocco."
+                "Riservatezza: di base non mostra saldi né importi, quindi non c'è nulla da nascondere. Se è attivo il blocco dell'app, prima dell'inserimento viene chiesto lo sblocco.",
+                "Scadenze nel widget: in Configurazione c'è l'interruttore \"Scadenze nel widget\" (spento all'inizio). Acceso, sotto il pulsante compaiono le prossime tre scadenze entro 30 giorni (abbonamenti, rate, ricorrenti) con giorno e importo; toccandole si apre il Calendario. Allarga il widget in altezza per vederle. Attenzione: il widget è visibile anche a telefono bloccato, quindi importi e nomi si leggono senza sbloccare."
             )
         )
     ),

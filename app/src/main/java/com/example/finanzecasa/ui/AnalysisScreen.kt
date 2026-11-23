@@ -285,6 +285,7 @@ fun AnalysisScreen(onBack: () -> Unit, vm: AnalysisViewModel = viewModel()) {
                 Text("Calcolo in corso…", style = MaterialTheme.typography.bodyMedium)
             } else {
                 ForecastCard(d, onIgnore = vm::ignoreForecastItem, onRestore = vm::restoreIgnored)
+                YearProjectionCard()
                 RuleCard(d, st.ruleMonth, onSelect = vm::selectRuleMonth)
                 SplitCard(d, st, onSelect = vm::selectMonth)
                 SimulatorCard(d.baseline, target, onTarget = vm::setTarget)

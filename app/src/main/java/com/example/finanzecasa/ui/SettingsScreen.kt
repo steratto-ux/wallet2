@@ -117,6 +117,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    /** Rimette in ordine il widget (ad esempio dopo aver acceso o spento le scadenze). */
+    fun refreshWidget() {
+        viewModelScope.launch(Dispatchers.IO) { runCatching { WalletWidgetProvider.refreshAll(app) } }
+    }
+
     fun checkAlertsNow() {
         viewModelScope.launch(Dispatchers.IO) { runCatching { AlertsChecker(app, app.db).run() } }
     }
@@ -151,6 +156,7 @@ fun SettingsScreen(
     val status by vm.status.collectAsState()
 
     var includeLoans by remember { mutableStateOf(settings.includeLoans()) }
+    var widgetDeadlines by remember { mutableStateOf(settings.widgetDeadlinesEnabled()) }
     var notifications by remember { mutableStateOf(settings.notificationsEnabled()) }
     var lock by remember { mutableStateOf(settings.lockEnabled()) }
     var unusual by remember { mutableStateOf(settings.unusualAlertsEnabled()) }
@@ -243,6 +249,15 @@ fun SettingsScreen(
                     "Nel patrimonio netto si sottrae il capitale ancora da restituire sui prestiti.",
                     includeLoans
                 ) { includeLoans = it; settings.setIncludeLoans(it) }
+            }
+            AppCard(Modifier.fillMaxWidth()) {
+                SwitchRow(
+                    "Scadenze nel widget",
+                    "Il widget mostra anche le prossime tre scadenze (abbonamenti, rate, ricorrenti) con l'importo; toccandole si apre il Calendario. " +
+                        "Il widget si vede anche a telefono bloccato: lascia spento se non vuoi che importi e nomi siano visibili. " +
+                        "Per vedere le righe allarga il widget in altezza.",
+                    widgetDeadlines
+                ) { widgetDeadlines = it; settings.setWidgetDeadlinesEnabled(it); vm.refreshWidget() }
             }
             AppCard(Modifier.fillMaxWidth()) {
                 Text("Account", style = MaterialTheme.typography.titleSmall)

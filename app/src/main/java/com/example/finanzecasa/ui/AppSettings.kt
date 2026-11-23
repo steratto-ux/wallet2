@@ -32,6 +32,10 @@ class AppSettings(context: Context) {
         prefs.edit().putString("theme_style", style.name).apply()
     }
 
+    /** Widget: mostra le prossime scadenze (v1.6). Spenta di default perché il widget è visibile a telefono bloccato. */
+    fun widgetDeadlinesEnabled(): Boolean = prefs.getBoolean("widget_deadlines", false)
+    fun setWidgetDeadlinesEnabled(on: Boolean) { prefs.edit().putBoolean("widget_deadlines", on).apply() }
+
     // --- Patrimonio netto
     fun includeLoans(): Boolean = prefs.getBoolean("include_loans", false)
     fun setIncludeLoans(on: Boolean) { prefs.edit().putBoolean("include_loans", on).apply() }

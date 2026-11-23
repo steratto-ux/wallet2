@@ -1,6 +1,11 @@
 package com.example.finanzecasa.ui
 
 import android.app.Application
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.Button
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -35,18 +42,28 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.finanzecasa.FinanceApp
 import com.example.finanzecasa.data.CategorySpend
+import com.example.finanzecasa.domain.CashflowPoint
+import com.example.finanzecasa.domain.CashflowSeries
+import com.example.finanzecasa.domain.CashflowSpan
+import com.example.finanzecasa.domain.CashflowView
 import com.example.finanzecasa.domain.CategoryChange
 import com.example.finanzecasa.domain.IconRules
 import com.example.finanzecasa.domain.ReportMath
 import com.example.finanzecasa.domain.ReportMode
 import com.example.finanzecasa.domain.ReportPeriod
 import com.example.finanzecasa.domain.toMillis
+import com.example.finanzecasa.report.YearPdf
+import com.example.finanzecasa.report.YearSummaryLoader
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
@@ -111,6 +128,55 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ReportState())
 
+    // --- Grafico entrate/uscite (v1.5): finestra scelta dall'utente e serie mensile
+    private val chartViewFlow = MutableStateFlow(CashflowView.initial(YearMonth.now()))
+    val chartView: StateFlow<CashflowView> = chartViewFlow
+
+    fun setChartSpan(span: CashflowSpan) { chartViewFlow.value = chartViewFlow.value.withSpan(span, YearMonth.now()) }
+    fun shiftChart(delta: Int) { chartViewFlow.value = chartViewFlow.value.shift(delta, YearMonth.now()) }
+
+    /** Entrate e uscite per mese della finestra; come nel resto dei report si arriva solo fino ad ora. */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val cashflow: StateFlow<List<CashflowPoint>> = combine(chartViewFlow, minuteClock()) { v, now -> v to now }
+        .flatMapLatest { (v, now) ->
+            val months = v.months
+            val current = YearMonth.from(now)
+            val from = months.first().atDay(1).atStartOfDay().toMillis()
+            val end = months.last().plusMonths(1).atDay(1).atStartOfDay().toMillis()
+            val to = minOf(end, now.plusMinutes(1).toMillis())
+            if (to <= from) flowOf(CashflowSeries.build(months, emptyMap(), emptyMap(), current))
+            else combine(dao.observeIncomeByMonth(from, to), dao.observeExpenseByMonth(from, to)) { inc, exp ->
+                CashflowSeries.build(
+                    months,
+                    inc.associate { it.month to it.totalCents },
+                    exp.associate { it.month to it.totalCents },
+                    current
+                )
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    // --- Riepilogo dell'anno in PDF (v1.6)
+    private val pdfMessageFlow = MutableStateFlow<String?>(null)
+    val pdfMessage: StateFlow<String?> = pdfMessageFlow
+    fun clearPdfMessage() { pdfMessageFlow.value = null }
+
+    fun exportYearPdf(year: Int, uri: Uri) {
+        viewModelScope.launch {
+            pdfMessageFlow.value = withContext(Dispatchers.IO) {
+                try {
+                    val data = YearSummaryLoader.load(dao, year, LocalDateTime.now())
+                    getApplication<Application>().contentResolver.openOutputStream(uri)!!.use { out ->
+                        YearPdf.write(data, out, LocalDate.now())
+                    }
+                    "Riepilogo $year salvato in PDF."
+                } catch (e: Exception) {
+                    "Errore nella creazione del PDF: ${e.message}"
+                }
+            }
+        }
+    }
+
     /** Dettaglio per sotto-categoria di una categoria principale, nel periodo indicato. */
     fun subcategories(parentId: Long, income: Boolean, fromMillis: Long, toMillis: Long): Flow<List<CategorySpend>> =
         dao.observeSubcategoryTotals(parentId, if (income) 1 else 0, fromMillis, toMillis)
@@ -136,6 +202,17 @@ private fun changeText(current: Long, previous: Long, label: String): String {
 @Composable
 fun ReportsScreen(onBack: () -> Unit, vm: ReportsViewModel = viewModel()) {
     val st by vm.state.collectAsState()
+    val chartView by vm.chartView.collectAsState()
+    val cashflow by vm.cashflow.collectAsState()
+    val pdfMessage by vm.pdfMessage.collectAsState()
+    val context = LocalContext.current
+    var pdfYear by remember { mutableStateOf(LocalDate.now().year) }
+    val pdfPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        if (uri != null) vm.exportYearPdf(pdfYear, uri)
+    }
+    LaunchedEffect(pdfMessage) {
+        pdfMessage?.let { Toast.makeText(context, it, Toast.LENGTH_LONG).show(); vm.clearPdfMessage() }
+    }
     val today = LocalDate.now()
     var drill by remember { mutableStateOf<Triple<Long, String, Boolean>?>(null) } // id, nome, entrata?
     val p = st.period
@@ -197,6 +274,15 @@ fun ReportsScreen(onBack: () -> Unit, vm: ReportsViewModel = viewModel()) {
                 }
             }
 
+            // Andamento di entrate e uscite nel tempo (linee o barre; 3/6/12 mesi o anno, anche passato)
+            CashflowChartCard(
+                view = chartView,
+                points = if (cashflow.isEmpty()) CashflowSeries.build(chartView.months, emptyMap(), emptyMap(), YearMonth.now()) else cashflow,
+                canGoForward = chartView.canGoForward(YearMonth.now()),
+                onSpanChange = { vm.setChartSpan(it) },
+                onShift = { vm.shiftChart(it) }
+            )
+
             // Categorie in crescita
             val growing = ReportMath.fastestGrowing(st.expenseCategories)
             if (growing.isNotEmpty()) {
@@ -254,6 +340,22 @@ fun ReportsScreen(onBack: () -> Unit, vm: ReportsViewModel = viewModel()) {
                         onClick = if (id != null) ({ drill = Triple(id, c.name, true) }) else null
                     )
                 }
+            }
+
+            // Riepilogo dell'anno da salvare o condividere come PDF
+            AppCard(Modifier.fillMaxWidth()) {
+                val year = p.anchor.year
+                Text("Riepilogo del $year in PDF", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Un documento di poche pagine con totali, confronto con l'anno prima, grafico e dettaglio dei mesi, " +
+                        "spese ed entrate per categoria. Lo scegli dove salvarlo e poi lo puoi inviare a chi vuoi.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 10.dp)
+                )
+                Button(
+                    onClick = { pdfYear = year; pdfPicker.launch("Riepilogo-$year.pdf") },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Crea il PDF del $year") }
             }
         }
     }
